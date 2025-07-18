@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: course-service
+spec:
+  selector:
+    app: course
+  ports:
+    - name: http
+      protocol: 'TCP'
+      port: 4002
+      targetPort: 4002
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: course-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: course
+  template:
+    metadata:
+      labels:
+        app: course
+    spec:
+      containers:
+        - name: course
+          image: djeukeu/online-learning-course:1
+          env:
+            - name: PORT
+              value: '4002'
+            - name: APP_NAME
+              value: online-learning-course
+            - name: APP_ENV
+              value: development
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: db_url
+            - name: JWT
+              valueFrom:
+                configMapKeyRef:
+                  name: env
+                  key: jwt
+          ports:
+            - containerPort: 4002
