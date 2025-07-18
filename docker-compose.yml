@@ -1,41 +1,24 @@
+version: '3.8'
+
 services:
+  nginx:
+      image: nginx:stable-alpine
+      ports:
+        - "4000:4000"
+      volumes:
+        - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      depends_on:
+        - auth
+        - course
   auth:
     image: djeukeu/online-learning-auth:1
     restart: always
     env_file: '.env.auth.dev'
-    depends_on:
-      mysql:
-        condition: service_healthy
-    ports:
-     - "${AUTH_PORT}:4001"
+    healthcheck:
+      test: curl -f http://localhost:4001/health || exit 1
   course:
     image: djeukeu/online-learning-course:1
     restart: always
     env_file: '.env.course.dev'
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-     - "${COURSE_PORT}:4002"
-  mysql:
-    image: mysql:8.0
-    restart: always
-    env_file: '.env.auth.dev'
     healthcheck:
-      test:
-        [
-          'CMD',
-          'mysqladmin',
-          'ping',
-          '-h',
-          'localhost',
-          '-u',
-          '${MYSQL_USER}',
-          '-p${MYSQL_ROOT_PASSWORD}',
-        ]
-  postgres:
-    image: postgres:16.9-alpine3.22
-    restart: always
-    env_file: '.env.course.dev'
-    healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      test: curl -f http://localhost:4002/health || exit 1
