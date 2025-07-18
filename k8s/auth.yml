@@ -31,11 +31,20 @@ spec:
           image: djeukeu/online-learning-auth:1
           env:
             - name: PORT
-              value: '4001'
+              valueFrom:
+                configMapKeyRef:
+                  name: env-auth
+                  key: port
             - name: APP_NAME
-              value: online-learning-auth
+              valueFrom:
+                configMapKeyRef:
+                  name: env-auth
+                  key: app_name
             - name: APP_ENV
-              value: development
+              valueFrom:
+                configMapKeyRef:
+                  name: env-auth
+                  key: app_env
             - name: DATABASE_URL
               valueFrom:
                 configMapKeyRef:

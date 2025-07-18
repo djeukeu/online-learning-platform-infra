@@ -31,11 +31,20 @@ spec:
           image: djeukeu/online-learning-course:1
           env:
             - name: PORT
-              value: '4002'
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: port
             - name: APP_NAME
-              value: online-learning-course
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: app_name
             - name: APP_ENV
-              value: development
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: app_env
             - name: DATABASE_URL
               valueFrom:
                 configMapKeyRef:
