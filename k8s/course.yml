@@ -29,6 +29,7 @@ spec:
       containers:
         - name: course
           image: djeukeu/online-learning-course:1
+          imagePullPolicy: Always
           env:
             - name: PORT
               valueFrom:
