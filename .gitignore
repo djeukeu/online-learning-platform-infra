@@ -66,9 +66,9 @@ logs
 *.tfvars
 *.tfvars.json
 
-# .tfvars sensitive data
-*.tfvars
-*.tfvars.json
+# kube project sensitive data
+env.yml
+env-auth.yml
 
 # Ignore CLI configuration files
 .terraformrc
