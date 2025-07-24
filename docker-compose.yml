@@ -10,15 +10,41 @@ services:
       depends_on:
         - auth
         - course
+        - payment
+  kafka-cluster:
+    image: landoop/fast-data-dev:3.6.1
+    environment:
+      ADV_HOST: "${KAFKA_HOST}"       
+      RUNTESTS: 0              
+      USER: "${KAFKA_USER}"
+      PASSWORD: "${KAFKA_PASSWORD}"
+    ports:
+      - 2181:2181                 
+      - 3030:3030                
+      - 8081-8083:8081-8083       
+      - 9581-9585:9581-9585       
+      - 9092:9092   
   auth:
-    image: djeukeu/online-learning-auth:1
+    image: djeukeu/online-learning-auth:1.0.2
     restart: always
     env_file: '.env.auth.dev'
     healthcheck:
       test: curl -f http://localhost:4001/health || exit 1
+    depends_on: 
+      - kafka-cluster
   course:
-    image: djeukeu/online-learning-course:1
+    image: djeukeu/online-learning-course:1.0.1
     restart: always
     env_file: '.env.course.dev'
     healthcheck:
       test: curl -f http://localhost:4002/health || exit 1
+    depends_on: 
+      - kafka-cluster
+  payment:
+    image: djeukeu/online-learning-payment:0.0.13
+    restart: always
+    env_file: '.env.payment.dev'
+    healthcheck:
+      test: curl -f http://localhost:4003/health || exit 1
+    depends_on: 
+      - kafka-cluster
