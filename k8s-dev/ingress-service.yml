@@ -31,3 +31,10 @@ spec:
                 name: course-service
                 port: 
                   number: 4002
+          - path: /api/payment/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: payment-service
+                port: 
+                  number: 4003
