@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: course
-          image: djeukeu/online-learning-course:1
+          image: djeukeu/online-learning-course:1.0.1
           imagePullPolicy: Always
           env:
             - name: PORT
@@ -56,3 +56,28 @@ spec:
                 configMapKeyRef:
                   name: env
                   key: jwt
+            - name: KAFKA_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: kafka_name
+            - name: KAFKA_BROKER
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: kafka_broker
+            - name: KAFKA_SCHEMA_REGISTRY
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: kafka_schema_registry
+            - name: KAFKA_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: kafka_topic
+            - name: PAYMENT_EVENT
+              valueFrom:
+                configMapKeyRef:
+                  name: env-course
+                  key: payment_event

@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: auth
-          image: djeukeu/online-learning-auth:1
+          image: djeukeu/online-learning-auth:1.0.2
           imagePullPolicy: Always
           env:
             - name: PORT
