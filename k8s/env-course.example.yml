@@ -7,3 +7,8 @@ data:
   app_name: 'online-learning-course'
   app_env: ''
   db_url: ''
+  kafka_name: ''
+  kafka_broker: ''
+  kafka_schema_registry: ''
+  kafka_topic: ''
+  payment_event: ''
