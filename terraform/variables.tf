@@ -1,0 +1,19 @@
+variable "aws_access_key" {
+  description = "AWS access key id"
+  type        = string
+}
+
+variable "aws_secret_key" {
+  description = "AWS secret access key"
+  type        = string
+}
+
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+}
+
+variable "environment" {
+  description = "project environment"
+  type        = string
+}

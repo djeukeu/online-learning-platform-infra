@@ -79,3 +79,5 @@ terraform.rc
 # dotenv environment variable files
 .env
 .env.**.dev
+
+launch-script.sh
