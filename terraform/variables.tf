@@ -1,19 +1,30 @@
-variable "aws_access_key" {
-  description = "AWS access key id"
-  type        = string
+variable "app_name" {
+  type = string
 }
 
-variable "aws_secret_key" {
-  description = "AWS secret access key"
-  type        = string
+variable "access_key" {
+  type = string
 }
 
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
+variable "secret_key" {
+  type = string
+}
+
+variable "region" {
+  type = string
 }
 
 variable "environment" {
-  description = "project environment"
-  type        = string
+  type = string
+}
+
+variable "auth" {
+  type = object({
+    app_name          = string
+    db_username       = string
+    db_password       = string
+    db_port           = number
+    db_engine         = string
+    db_engine_version = string
+  })
 }
