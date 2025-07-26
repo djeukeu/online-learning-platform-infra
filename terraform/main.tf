@@ -49,3 +49,27 @@ module "auth_db" {
   db_engine         = var.auth.db_engine
   db_engine_version = var.auth.db_engine_version
 }
+
+module "payment_db" {
+  source            = "./modules/database"
+  app_name          = var.payment.app_name
+  vpc_id            = aws_vpc.vpc.id
+  subnet_ids        = [for subnet in aws_subnet.public_subnet : subnet.id]
+  db_username       = var.payment.db_username
+  db_password       = var.payment.db_password
+  db_port           = var.payment.db_port
+  db_engine         = var.payment.db_engine
+  db_engine_version = var.payment.db_engine_version
+}
+
+module "course_db" {
+  source            = "./modules/database"
+  app_name          = var.course.app_name
+  vpc_id            = aws_vpc.vpc.id
+  subnet_ids        = [for subnet in aws_subnet.public_subnet : subnet.id]
+  db_username       = var.course.db_username
+  db_password       = var.course.db_password
+  db_port           = var.course.db_port
+  db_engine         = var.course.db_engine
+  db_engine_version = var.course.db_engine_version
+}
