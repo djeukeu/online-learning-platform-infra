@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-service
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: myapp
+spec:
+  ingressClassName: alb
+  rules:
+    - host: online.com
+      http: 
+        paths:
+          - path: /api/auth/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port: 
+                  number: 4001
+          - path: /api/user/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port: 
+                  number: 4001
+          - path: /api/course/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: course-service
+                port: 
+                  number: 4002
+          - path: /api/payment/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: payment-service
+                port: 
+                  number: 4003
