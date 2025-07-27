@@ -70,7 +70,6 @@ resource "aws_route_table" "private_route_table" {
   }
 }
 
-
 resource "aws_route_table_association" "public_subnet_route_association" {
   count          = length(aws_subnet.public_subnet)
   subnet_id      = aws_subnet.public_subnet[count.index].id
@@ -104,41 +103,41 @@ resource "aws_iam_role" "eks_cluster_role" {
   })
 }
 
-# resource "aws_iam_role" "eks_node_group_role" {
-#   name = "${var.app_name}-eks-node-group-role"
-#   force_detach_policies = true
+resource "aws_iam_role" "eks_node_group_role" {
+  name                  = "${var.app_name}-eks-node-group-role"
+  force_detach_policies = true
 
-#   assume_role_policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [{
-#       Action    = "sts:AssumeRole"
-#       Effect    = "Allow"
-#       Principal = {
-#         Service = "ec2.amazonaws.com"
-#       }
-#     }]
-#   })
-# }
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+}
 
 resource "aws_iam_role_policy_attachment" "eks_cluster_AmazonEKSClusterPolicy" {
   role       = aws_iam_role.eks_cluster_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
-# resource "aws_iam_role_policy_attachment" "AmazonEKSWorkerNodePolicy" {
-#   role       = aws_iam_role.eks_node_group_role.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-# }
+resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEKSWorkerNodePolicy" {
+  role       = aws_iam_role.eks_node_group_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+}
 
-# resource "aws_iam_role_policy_attachment" "AmazonEC2ContainerRegistryReadOnly" {
-#   role       = aws_iam_role.eks_node_group_role.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-# }
+resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEC2ContainerRegistryReadOnly" {
+  role       = aws_iam_role.eks_node_group_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
 
-# resource "aws_iam_role_policy_attachment" "AmazonEKS_CNI_Policy" {
-#   role       = aws_iam_role.eks_node_group_role.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-# }
+resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEKS_CNI_Policy" {
+  role       = aws_iam_role.eks_node_group_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+}
 
 resource "aws_eks_cluster" "eks_cluster" {
   name     = var.app_name
@@ -172,6 +171,27 @@ resource "aws_eks_access_policy_association" "admin_access_policy" {
   access_scope {
     type = "cluster"
   }
+}
+
+resource "aws_eks_node_group" "node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "${var.app_name}-node-group"
+  node_role_arn   = aws_iam_role.eks_node_group_role.arn
+  subnet_ids      = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
+
+  scaling_config {
+    desired_size = 1
+    max_size     = 3
+    min_size     = 1
+  }
+
+  instance_types = ["t3.medium"]
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
+  ]
 }
 
 # module "auth_db" {
