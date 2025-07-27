@@ -31,43 +31,60 @@ resource "aws_subnet" "private_subnet" {
   }
 }
 
-# resource "aws_internet_gateway" "igw" {
-#   vpc_id     = aws_vpc.vpc.id
-#   depends_on = [aws_vpc.vpc]
-# }
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.vpc.id
+}
 
-# resource "aws_route_table" "public_route_table" {
-#   vpc_id = aws_vpc.vpc.id
+resource "aws_eip" "eip" {
+  count  = length(aws_subnet.public_subnet)
+  domain = "vpc"
+}
 
-#   route {
-#     cidr_block = "0.0.0.0/0"
-#     gateway_id = aws_internet_gateway.igw.id
-#   }
-# }
+resource "aws_nat_gateway" "ngw" {
+  count         = length(aws_subnet.public_subnet)
+  allocation_id = aws_eip.eip[count.index].id
+  subnet_id     = aws_subnet.public_subnet[count.index].id
 
-# resource "aws_route_table" "public_route_table" {
-#   vpc_id = aws_vpc.vpc.id
+  depends_on = [aws_internet_gateway.igw]
+}
 
-#   route {
-#     cidr_block = "0.0.0.0/0"
-#     gateway_id = aws_internet_gateway.igw.id
-#   }
-# }
 
-# resource "aws_route_table" "public_route_table" {
-#   vpc_id = aws_vpc.vpc.id
+resource "aws_route_table" "public_route_table" {
+  vpc_id = aws_vpc.vpc.id
 
-#   route {
-#     cidr_block = "0.0.0.0/0"
-#     gateway_id = aws_internet_gateway.igw.id
-#   }
-# }
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+}
 
-# resource "aws_route_table_association" "subnet_route_table_association" {
-#   count          = length(aws_subnet.public_subnet)
-#   subnet_id      = aws_subnet.public_subnet[count.index].id
-#   route_table_id = aws_route_table.public_route_table.id
-# }
+resource "aws_route_table" "private_route_table" {
+  count  = length(aws_nat_gateway.ngw)
+  vpc_id = aws_vpc.vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_nat_gateway.ngw[count.index].id
+  }
+}
+
+
+resource "aws_route_table_association" "public_subnet_route_association" {
+  count          = length(aws_subnet.public_subnet)
+  subnet_id      = aws_subnet.public_subnet[count.index].id
+  route_table_id = aws_route_table.public_route_table.id
+}
+
+resource "aws_route_table_association" "private_subnet_route_association" {
+  count          = length(aws_subnet.private_subnet)
+  subnet_id      = aws_subnet.private_subnet[count.index].id
+  route_table_id = aws_route_table.private_route_table[count.index].id
+}
+
+resource "aws_security_group" "control_plane_sg" {
+  name   = "${var.app_name}-sg"
+  vpc_id = aws_vpc.vpc.id
+}
 
 # module "auth_db" {
 #   source            = "./modules/database"
