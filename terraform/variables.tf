@@ -18,6 +18,10 @@ variable "environment" {
   type = string
 }
 
+variable "admin_arn" {
+  type = string
+}
+
 variable "auth" {
   type = object({
     app_name          = string

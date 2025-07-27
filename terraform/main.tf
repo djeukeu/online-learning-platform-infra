@@ -16,6 +16,7 @@ resource "aws_subnet" "public_subnet" {
   cidr_block              = "192.168.${64 * count.index}.0/18"
   availability_zone       = data.aws_availability_zones.az_available.names[count.index]
   map_public_ip_on_launch = true
+
   tags = {
     "kubernetes.io/role/elb" = 1
   }
@@ -26,6 +27,7 @@ resource "aws_subnet" "private_subnet" {
   vpc_id            = aws_vpc.vpc.id
   cidr_block        = "192.168.${64 * count.index + 128}.0/18"
   availability_zone = data.aws_availability_zones.az_available.names[count.index]
+
   tags = {
     "kubernetes.io/role/internal-elb" = 1
   }
@@ -84,6 +86,92 @@ resource "aws_route_table_association" "private_subnet_route_association" {
 resource "aws_security_group" "control_plane_sg" {
   name   = "${var.app_name}-sg"
   vpc_id = aws_vpc.vpc.id
+}
+
+resource "aws_iam_role" "eks_cluster_role" {
+  name                  = "${var.app_name}-eks-cluster-role"
+  force_detach_policies = true
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "eks.amazonaws.com"
+      }
+    }]
+  })
+}
+
+# resource "aws_iam_role" "eks_node_group_role" {
+#   name = "${var.app_name}-eks-node-group-role"
+#   force_detach_policies = true
+
+#   assume_role_policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [{
+#       Action    = "sts:AssumeRole"
+#       Effect    = "Allow"
+#       Principal = {
+#         Service = "ec2.amazonaws.com"
+#       }
+#     }]
+#   })
+# }
+
+resource "aws_iam_role_policy_attachment" "eks_cluster_AmazonEKSClusterPolicy" {
+  role       = aws_iam_role.eks_cluster_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+# resource "aws_iam_role_policy_attachment" "AmazonEKSWorkerNodePolicy" {
+#   role       = aws_iam_role.eks_node_group_role.name
+#   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+# }
+
+# resource "aws_iam_role_policy_attachment" "AmazonEC2ContainerRegistryReadOnly" {
+#   role       = aws_iam_role.eks_node_group_role.name
+#   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+# }
+
+# resource "aws_iam_role_policy_attachment" "AmazonEKS_CNI_Policy" {
+#   role       = aws_iam_role.eks_node_group_role.name
+#   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+# }
+
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = var.app_name
+  role_arn = aws_iam_role.eks_cluster_role.arn
+  version  = "1.32"
+
+  access_config {
+    authentication_mode = "API"
+  }
+
+  vpc_config {
+    subnet_ids              = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
+    endpoint_private_access = true
+    endpoint_public_access  = true
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy]
+}
+
+resource "aws_eks_access_entry" "admin_access" {
+  cluster_name  = aws_eks_cluster.eks_cluster.name
+  principal_arn = var.admin_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "admin_access_policy" {
+  cluster_name  = aws_eks_cluster.eks_cluster.name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
+  principal_arn = var.admin_arn
+
+  access_scope {
+    type = "cluster"
+  }
 }
 
 # module "auth_db" {
