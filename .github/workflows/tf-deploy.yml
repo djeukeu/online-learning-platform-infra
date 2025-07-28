@@ -5,8 +5,8 @@ on:
   push:
     branches:
       - 'develop'
-    paths:
-      - 'terraform/**'
+    # paths:
+    #   - 'terraform/**'
 
 jobs:
   lint:
@@ -30,6 +30,8 @@ jobs:
       - name: Write terraform variable files
         run: |
           echo '${{ secrets.TF_VARS }}' > terraform.tfvars
+      - name: Terraform Init
+        run: terraform init
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
