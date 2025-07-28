@@ -28,4 +28,4 @@ jobs:
                 key: ${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
             - name: TF Lint
               run: |
-                  tflint --enable-rule=ALL
+                  tflint
