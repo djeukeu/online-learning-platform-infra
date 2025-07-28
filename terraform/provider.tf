@@ -10,6 +10,7 @@ terraform {
     key    = "online-learning/terraform.tfstate"
     region = "us-east-2"
     use_lockfile = true
+    workspace_key_prefix = "online-learning"
   }
 }
 

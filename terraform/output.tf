@@ -31,6 +31,3 @@ output "course_db" {
     port     = module.course_db.port
   }
 }
-
-
-
