@@ -1,0 +1,32 @@
+name: TF Lint
+run-name: ${{ github.actor }} triggered the TF lint ci
+
+on:
+    push:
+        branches:
+            - '**'
+            - '!master'
+        paths:
+          - 'terraform/**'
+
+jobs:
+    run-lint:
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - name: Setup TFLint
+              uses: terraform-linters/setup-tflint@v4
+              with:
+                tflint_version: v0.58.0
+            - name: Cache tflint modules
+              uses: actions/cache@v4
+              with:
+                path: ~/.tflint.d/plugins
+                key: ${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+            - name: TF Lint
+              run: |
+                  tflint --init
+                  tflint
