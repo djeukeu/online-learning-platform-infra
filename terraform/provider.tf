@@ -5,6 +5,12 @@ terraform {
       version = "6.5.0"
     }
   }
+  backend "s3" {
+    bucket = "djeukeu-terraform-state"
+    key    = "online-learning/terraform.tfstate"
+    region = "us-east-2"
+    use_lockfile = true
+  }
 }
 
 provider "aws" {
