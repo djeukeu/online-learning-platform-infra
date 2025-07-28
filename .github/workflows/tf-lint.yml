@@ -6,8 +6,8 @@ on:
         branches:
             - '**'
             - '!master'
-        paths:
-          - 'terraform/**'
+        # paths:
+        #   - 'terraform/**'
 
 jobs:
     run-lint:
@@ -28,4 +28,4 @@ jobs:
                 key: ${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
             - name: TF Lint
               run: |
-                  tflint
+                  tflint --enable-rule=ALL
