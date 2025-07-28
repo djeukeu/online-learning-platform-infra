@@ -28,5 +28,4 @@ jobs:
                 key: ${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
             - name: TF Lint
               run: |
-                  tflint --init
                   tflint
