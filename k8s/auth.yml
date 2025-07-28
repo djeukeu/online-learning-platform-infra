@@ -5,7 +5,7 @@ metadata:
 spec:
   selector:
     app: auth
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: auth
       protocol: TCP
@@ -37,6 +37,18 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "250m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 10
+            periodSeconds: 20
           env:
             - name: PORT
               valueFrom:
