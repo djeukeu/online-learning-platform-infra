@@ -5,8 +5,8 @@ on:
   push:
     branches:
       - 'develop'
-    # paths:
-    #   - 'terraform/**'
+    paths:
+      - 'terraform/**'
 
 jobs:
   deploy:
@@ -34,3 +34,9 @@ jobs:
         run: terraform init
       - name: Terraform Apply
         run: terraform apply -auto-approve
+      - name: Write terraform ouput
+        run: terraform output -json > output.json
+      - name: actions/upload-artifact@v4
+        with:
+          name: tf-output
+          path: output.json
