@@ -1,0 +1,35 @@
+name: TF Deploy
+run-name: ${{ github.actor }} triggered the TF Deploy
+
+on:
+  push:
+    branches:
+      - 'develop'
+    paths:
+      - 'terraform/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+          terraform_wrapper: false
+      - name: Write terraform variable files
+        run: |
+          echo '${{ secrets.TF_VARS }}' > terraform.tfvars
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
