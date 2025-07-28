@@ -6,8 +6,8 @@ on:
         branches:
             - '**'
             - '!master'
-        # paths:
-        #   - 'terraform/**'
+        paths:
+          - 'terraform/**'
 
 jobs:
     run-lint:
