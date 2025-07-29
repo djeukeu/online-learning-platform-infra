@@ -5,7 +5,7 @@ metadata:
 spec:
   selector:
     app: payment
-  type: NodePort
+  type: ClusterIP
   ports:
     - name: http
       protocol: 'TCP'
@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: payment
-          image: djeukeu/online-learning-payment:1.0.3
+          image: djeukeu/online-learning-payment:1.0.4
           imagePullPolicy: Always
           resources:
             requests:

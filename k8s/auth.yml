@@ -5,7 +5,7 @@ metadata:
 spec:
   selector:
     app: auth
-  type: NodePort
+  type: ClusterIP
   ports:
     - name: auth
       protocol: TCP
@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: auth
-          image: djeukeu/online-learning-auth:1.0.2
+          image: djeukeu/online-learning-auth:1.0.4
           imagePullPolicy: Always
           resources:
             requests:
