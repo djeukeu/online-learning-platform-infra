@@ -1,7 +1,3 @@
-output "vpc_id" {
-  value = aws_vpc.vpc.id
-}
-
 output "eks_cluster" {
   value = {
     id       = aws_eks_cluster.eks_cluster.id

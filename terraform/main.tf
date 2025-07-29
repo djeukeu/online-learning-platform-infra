@@ -1,148 +1,9 @@
-resource "aws_vpc" "vpc" {
-  cidr_block           = "192.168.0.0/16"
-  instance_tenancy     = "default"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-}
-
-data "aws_availability_zones" "az_available" {
-  state                  = "available"
-  all_availability_zones = true
-}
-
-resource "aws_subnet" "public_subnet" {
-  count                   = 2
-  vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = "192.168.${64 * count.index}.0/18"
-  availability_zone       = data.aws_availability_zones.az_available.names[count.index]
-  map_public_ip_on_launch = true
-
-  tags = {
-    "kubernetes.io/role/elb" = 1
-  }
-}
-
-resource "aws_subnet" "private_subnet" {
-  count             = 2
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = "192.168.${64 * count.index + 128}.0/18"
-  availability_zone = data.aws_availability_zones.az_available.names[count.index]
-
-  tags = {
-    "kubernetes.io/role/internal-elb" = 1
-  }
-}
-
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.vpc.id
-}
-
-resource "aws_eip" "eip" {
-  count  = length(aws_subnet.public_subnet)
-  domain = "vpc"
-}
-
-resource "aws_nat_gateway" "ngw" {
-  count         = length(aws_subnet.public_subnet)
-  allocation_id = aws_eip.eip[count.index].id
-  subnet_id     = aws_subnet.public_subnet[count.index].id
-
-  depends_on = [aws_internet_gateway.igw]
-}
-
-
-resource "aws_route_table" "public_route_table" {
-  vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-}
-
-resource "aws_route_table" "private_route_table" {
-  count  = length(aws_nat_gateway.ngw)
-  vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.ngw[count.index].id
-  }
-}
-
-resource "aws_route_table_association" "public_subnet_route_association" {
-  count          = length(aws_subnet.public_subnet)
-  subnet_id      = aws_subnet.public_subnet[count.index].id
-  route_table_id = aws_route_table.public_route_table.id
-}
-
-resource "aws_route_table_association" "private_subnet_route_association" {
-  count          = length(aws_subnet.private_subnet)
-  subnet_id      = aws_subnet.private_subnet[count.index].id
-  route_table_id = aws_route_table.private_route_table[count.index].id
-}
-
-resource "aws_security_group" "control_plane_sg" {
-  name   = "${var.app_name}-sg"
-  vpc_id = aws_vpc.vpc.id
-}
-
-resource "aws_iam_role" "eks_cluster_role" {
-  name                  = "${var.app_name}-eks-cluster-role"
-  force_detach_policies = true
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "eks.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role" "eks_node_group_role" {
-  name                  = "${var.app_name}-eks-node-group-role"
-  force_detach_policies = true
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cluster_AmazonEKSClusterPolicy" {
-  role       = aws_iam_role.eks_cluster_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEKSWorkerNodePolicy" {
-  role       = aws_iam_role.eks_node_group_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEC2ContainerRegistryReadOnly" {
-  role       = aws_iam_role.eks_node_group_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEKS_CNI_Policy" {
-  role       = aws_iam_role.eks_node_group_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-}
-
 resource "aws_eks_cluster" "eks_cluster" {
   name     = var.app_name
   role_arn = aws_iam_role.eks_cluster_role.arn
   version  = "1.32"
+
+  bootstrap_self_managed_addons = false
 
   access_config {
     authentication_mode = "API"
@@ -154,56 +15,54 @@ resource "aws_eks_cluster" "eks_cluster" {
     endpoint_public_access  = true
   }
 
-  depends_on = [aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy]
-}
-
-resource "aws_eks_access_entry" "admin_access" {
-  cluster_name  = aws_eks_cluster.eks_cluster.name
-  principal_arn = var.admin_arn
-  type          = "STANDARD"
-}
-
-resource "aws_eks_access_policy_association" "admin_access_AmazonEKSAdminPolicy" {
-  cluster_name  = aws_eks_cluster.eks_cluster.name
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
-  principal_arn = var.admin_arn
-
-  access_scope {
-    type = "cluster"
-  }
-}
-
-resource "aws_eks_access_policy_association" "admin_access_AmazonEKSAdminViewPolicy" {
-  cluster_name  = aws_eks_cluster.eks_cluster.name
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminViewPolicy"
-  principal_arn = var.admin_arn
-
-  access_scope {
-    type = "cluster"
-  }
-}
-
-
-resource "aws_eks_node_group" "node_group" {
-  cluster_name    = aws_eks_cluster.eks_cluster.name
-  node_group_name = "${var.app_name}-node-group"
-  node_role_arn   = aws_iam_role.eks_node_group_role.arn
-  subnet_ids      = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
-
-  scaling_config {
-    desired_size = 1
-    max_size     = 3
-    min_size     = 1
+  compute_config {
+    enabled       = true
+    node_pools    = ["general-purpose"]
+    node_role_arn = aws_iam_role.eks_node_group_role.arn
   }
 
-  instance_types = ["t3.medium"]
+  kubernetes_network_config {
+    elastic_load_balancing {
+      enabled = true
+    }
+  }
+
+  storage_config {
+    block_storage {
+      enabled = true
+    }
+  }
 
   depends_on = [
-    aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
+    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
+    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSComputePolicy,
+    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSBlockStoragePolicyy,
+    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSLoadBalancingPolicy,
+    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSNetworkingPolicy,
   ]
 }
+
+
+# resource "aws_eks_node_group" "node_group" {
+#   cluster_name    = aws_eks_cluster.eks_cluster.name
+#   node_group_name = "${var.app_name}-node-group"
+#   node_role_arn   = aws_iam_role.eks_node_group_role.arn
+#   subnet_ids      = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
+
+#   scaling_config {
+#     desired_size = 1
+#     max_size     = 3
+#     min_size     = 1
+#   }
+
+#   instance_types = ["t3.medium"]
+
+#   depends_on = [
+#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
+#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
+#     aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
+#   ]
+# }
 
 module "auth_db" {
   source            = "./modules/database"
