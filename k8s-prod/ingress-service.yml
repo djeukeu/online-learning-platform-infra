@@ -1,3 +1,14 @@
+# apiVersion: networking.k8s.io/v1
+# kind: IngressClass
+# metadata:
+#   labels:
+#     app.kubernetes.io/name: LoadBalancerController
+#   name: alb
+# spec:
+#   controller: eks.amazonaws.com/alb
+
+# ---
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -5,38 +16,37 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/group.name: myapp
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 spec:
   ingressClassName: alb
   rules:
-    - host: online.com
-      http: 
+    - http:
         paths:
-          - path: /api/auth/?(.*)
-            pathType: ImplementationSpecific
+          - path: /api/auth
+            pathType: Prefix
             backend:
               service:
                 name: auth-service
-                port: 
+                port:
                   number: 4001
-          - path: /api/user/?(.*)
-            pathType: ImplementationSpecific
+          - path: /api/user
+            pathType: Prefix
             backend:
               service:
                 name: auth-service
-                port: 
+                port:
                   number: 4001
-          - path: /api/course/?(.*)
-            pathType: ImplementationSpecific
+          - path: /api/course
+            pathType: Prefix
             backend:
               service:
                 name: course-service
-                port: 
+                port:
                   number: 4002
-          - path: /api/payment/?(.*)
-            pathType: ImplementationSpecific
+          - path: /api/payment
+            pathType: Prefix
             backend:
               service:
                 name: payment-service
-                port: 
+                port:
                   number: 4003
