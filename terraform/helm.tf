@@ -10,39 +10,24 @@ resource "helm_release" "aws_lb_controller" {
   set = [{
     name  = "clusterName"
     value = aws_eks_cluster.eks_cluster.name
-    }, 
-    {
-    name  = "region"
-    value = aws_eks_cluster.eks_cluster.region
     },
     {
-    name  = "vpcId"
-    value = aws_vpc.vpc.id
+      name  = "region"
+      value = aws_eks_cluster.eks_cluster.region
     },
+    {
+      name  = "vpcId"
+      value = aws_vpc.vpc.id
+    },
+    {
+      name  = "serviceAccount.create"
+      value = "true"
+      }, {
+      name  = "serviceAccount.name"
+      value = aws_iam_role.aws_load_balancer_controller.id
+      }, {
+      name  = "serviceAccount.annotations.eks\\.amazonaws\\.com\\/role-arn"
+      value = aws_iam_role.aws_load_balancer_controller.arn
+    }
   ]
-
-  #   set {
-  #     name  = "clusterName"
-  #     value = aws_eks_cluster.eks_cluster.name
-  #   }
-
-  #   set {
-  #     name  = "defaultTargetType"
-  #     value = "ip"
-  #   }
-
-  #   set {
-  #     name  = "serviceAccount.create"
-  #     value = "true"
-  #   }
-
-  #   set {
-  #     name  = "serviceAccount.name"
-  #     value = aws_iam_role.aws_load_balancer_controller.id
-  #   }
-
-  #   set {
-  #     name  = "serviceAccount.annotations.eks\\.amazonaws\\.com\\/role-arn"
-  #     value = aws_iam_role.aws_load_balancer_controller.arn
-  #   }
 }
