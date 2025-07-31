@@ -51,5 +51,7 @@ jobs:
       - name: Write terraform variable files
         run: |
           echo '${{ secrets.TF_VARS }}' > terraform.tfvars
+      - name: Terraform Init
+        run: terraform init
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
