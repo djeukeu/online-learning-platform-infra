@@ -1,6 +1,3 @@
-# data "aws_caller_identity" "current" {}
-
-# Use Helm to install LB controller.
 resource "helm_release" "aws_lb_controller" {
   name       = "aws-load-balancer-controller"
   namespace  = "kube-system"
@@ -22,10 +19,12 @@ resource "helm_release" "aws_lb_controller" {
     {
       name  = "serviceAccount.create"
       value = "true"
-      }, {
+    },
+    {
       name  = "serviceAccount.name"
       value = aws_iam_role.aws_load_balancer_controller.id
-      }, {
+    },
+    {
       name  = "serviceAccount.annotations.eks\\.amazonaws\\.com\\/role-arn"
       value = aws_iam_role.aws_load_balancer_controller.arn
     }

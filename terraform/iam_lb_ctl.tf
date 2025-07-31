@@ -1,9 +1,9 @@
-resource "aws_iam_openid_connect_provider" "oidc" {
+resource "aws_iam_openid_connect_provider" "eks_oidc" {
   client_id_list = ["sts.amazonaws.com"]
   url            = aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer
 }
 
-data "aws_iam_policy_document" "aws_load_balancer_controller_assume_role_policy" {
+data "aws_iam_policy_document" "aws_lb_ctl_assume_role_policy" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
     effect  = "Allow"
@@ -15,24 +15,24 @@ data "aws_iam_policy_document" "aws_load_balancer_controller_assume_role_policy"
     }
 
     principals {
-      identifiers = [aws_iam_openid_connect_provider.oidc.arn]
+      identifiers = [aws_iam_openid_connect_provider.eks_oidc.arn]
       type        = "Federated"
     }
   }
 }
 
-resource "aws_iam_role" "aws_load_balancer_controller" {
-  assume_role_policy = data.aws_iam_policy_document.aws_load_balancer_controller_assume_role_policy.json
-  name               = "aws-load-balancer-controller-${aws_eks_cluster.eks_cluster.name}"
+resource "aws_iam_role" "aws_lb_ctl" {
+  assume_role_policy = data.aws_iam_policy_document.aws_lb_ctl_assume_role_policy.json
+  name               = "${aws_eks_cluster.eks_cluster.name}-aws-lb-ctl-role"
 }
 
-resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller_attach" {
-  role       = aws_iam_role.aws_load_balancer_controller.name
-  policy_arn = aws_iam_policy.aws_load_balancer_controller.arn
+resource "aws_iam_role_policy_attachment" "aws_lb_ctl_attach" {
+  role       = aws_iam_role.aws_lb_ctl.name
+  policy_arn = aws_iam_policy.aws_lb_ctl.arn
 }
 
-resource "aws_iam_policy" "aws_load_balancer_controller" {
-  name = "AWSLoadBalancerController-${aws_eks_cluster.eks_cluster.name}"
+resource "aws_iam_policy" "aws_lb_ctl" {
+  name = "${aws_eks_cluster.eks_cluster.name}_AWSLoadBalancerController"
   policy = jsonencode(
     {
       "Version" : "2012-10-17",
