@@ -11,7 +11,7 @@ data "aws_iam_policy_document" "aws_lb_ctl_assume_role_policy" {
     condition {
       test     = "StringEquals"
       variable = "${replace(aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer, "https://", "")}:sub"
-      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller-${aws_eks_cluster.eks_cluster.name}"]
+      values   = ["system:serviceaccount:kube-system:${aws_eks_cluster.eks_cluster.name}-aws-lb-ctl-role"]
     }
 
     principals {

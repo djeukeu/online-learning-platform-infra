@@ -22,11 +22,11 @@ resource "helm_release" "aws_lb_controller" {
     },
     {
       name  = "serviceAccount.name"
-      value = aws_iam_role.aws_load_balancer_controller.id
+      value = aws_iam_role.aws_lb_ctl.id
     },
     {
       name  = "serviceAccount.annotations.eks\\.amazonaws\\.com\\/role-arn"
-      value = aws_iam_role.aws_load_balancer_controller.arn
+      value = aws_iam_role.aws_lb_ctl.arn
     }
   ]
 }
