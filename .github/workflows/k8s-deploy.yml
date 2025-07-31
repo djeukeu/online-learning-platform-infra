@@ -13,7 +13,6 @@ env:
   EKS_CLUSTER_NAME: ${{secrets.EKS_CLUSTER_NAME}}
   AWS_REGION: ${{secrets.AWS_REGION}}
 
-
 jobs:
   deploy:
     runs-on: ubuntu-24.04
@@ -30,13 +29,21 @@ jobs:
           aws-region: ${{env.AWS_REGION}}
       - name: Update kube config
         run: aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
-      - name: Write k8s env files
-        run: |
-          cd k8s
-          echo '${{ secrets.K8S_ENV }}' > env.yml
-          echo '${{ secrets.K8S_AUTH }}' > env-auth.yml
-          echo '${{ secrets.K8S_COURSE }}' > env-course.yml
-          echo '${{ secrets.K8S_PAYMENT }}' > env-payment.yml
+      - name: Update and Apply k8s env files
+        uses: swdotcom/update-and-apply-kubernetes-configs@v1
+        with:
+          k8-config-file-paths: |
+            k8s/env.yml
+            k8s/env-auth.yml
+            k8s/env-course.yml
+            k8s/env-payment.yml
+          replacement-method: all
+        env:
+          APP_JWT: ${{ secrets.APP_JWT }}
+          APP_ENV: ${{ secrets.APP_ENV }}
+          AUTH_DB: ${{ secrets.AUTH_DB }}
+          COURSE_DB: ${{ secrets.COURSE_DB }}
+          PAYMENT_DB: ${{ secrets.PAYMENT_DB }}
       - name: Deploy k8s
         run: |
           kubectl apply -f k8s

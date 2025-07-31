@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-payment
+data:
+  port: '4003'
+  app_name: 'online-learning-payment'
+  app_env: '${APP_ENV}'
+  db_url: '${PAYMENT_DB}'

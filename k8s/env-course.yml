@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-course
+data:
+  port: '4002'
+  app_name: 'online-learning-course'
+  app_env: '${APP_ENV}'
+  db_url: '${COURSE_DB}'
