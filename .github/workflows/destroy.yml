@@ -34,6 +34,7 @@ jobs:
           kubectl delete -f k8s
   terraform:
     runs-on: ubuntu-24.04
+    needs: k8s
     defaults:
       run:
         working-directory: ./terraform
