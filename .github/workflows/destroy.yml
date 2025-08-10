@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - 'master'
+    paths:
+      - 'terraform/**'
+      - 'k8s/**'
+      - 'k8s-prod/**'
 
 env:
   EKS_CLUSTER_NAME: ${{secrets.EKS_CLUSTER_NAME}}
