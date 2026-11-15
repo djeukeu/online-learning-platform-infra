@@ -13,10 +13,12 @@ resource "aws_db_subnet_group" "db_subnets" {
   subnet_ids = var.subnet_ids
 }
 
-resource "aws_kms_key" "db_key" {
-  description             = "KMS key for ${var.name} RDS master secret"
-  enable_key_rotation     = true
-  rotation_period_in_days = 90
+resource "aws_secretsmanager_secret_rotation" "example" {
+  secret_id           = aws_db_instance.db_instance.master_user_secret[0].secret_arn
+
+  rotation_rules {
+    automatically_after_days = 30
+  }
 }
 
 resource "aws_db_instance" "db_instance" {
@@ -33,7 +35,6 @@ resource "aws_db_instance" "db_instance" {
   username = "${var.name}_user"
 
   manage_master_user_password   = true
-  master_user_secret_kms_key_id = aws_kms_key.db_key.key_id
 
   db_subnet_group_name   = aws_db_subnet_group.db_subnets.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
