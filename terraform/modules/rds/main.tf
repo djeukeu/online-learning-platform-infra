@@ -13,7 +13,7 @@ resource "aws_db_subnet_group" "db_subnets" {
   subnet_ids = var.subnet_ids
 }
 
-resource "aws_secretsmanager_secret_rotation" "example" {
+resource "aws_secretsmanager_secret_rotation" "rds_secret_rotation" {
   secret_id           = aws_db_instance.db_instance.master_user_secret[0].secret_arn
 
   rotation_rules {
