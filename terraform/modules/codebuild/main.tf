@@ -11,9 +11,15 @@ resource "aws_security_group" "codebuild_sg" {
 
 }
 
+resource "aws_codebuild_source_credential" "github" {
+  auth_type   = "PERSONAL_ACCESS_TOKEN"
+  server_type = "GITHUB"
+  token       = var.github.token
+}
+
 resource "aws_codebuild_project" "codebuild" {
   name          = var.name
-  description   = "Build for ${var.name}"
+  description   = "CodeBuild for ${var.name} service"
   service_role  = aws_iam_role.codebuild_role.arn
   build_timeout = 30
 
@@ -78,4 +84,21 @@ resource "aws_codebuild_project" "codebuild" {
     ]
   }
 
+  depends_on = [aws_codebuild_source_credential.github]
+}
+
+resource "aws_codebuild_webhook" "codebuild_webhook" {
+  project_name = aws_codebuild_project.codebuild.name
+  build_type   = "BUILD"
+
+  filter_group {
+    filter {
+      type    = "EVENT"
+      pattern = "PUSH"
+    }
+    filter {
+      type    = "HEAD_REF"
+      pattern = "^refs/heads/${var.github.branch}$"
+    }
+  }
 }

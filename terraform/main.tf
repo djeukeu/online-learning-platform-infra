@@ -59,8 +59,9 @@ module "auth_db_build" {
   region      = var.aws_region
   github = {
     repo_url  = var.auth.app_repo_url
-    branch    = var.auth.app_branch
-    buildspec = var.auth.app_buildspec
+    branch    = var.auth.app_repo_branch
+    buildspec = var.auth.app_repo_buildspec
+    token     = var.github_token
   }
   db = {
     name       = module.auth_db.db_name

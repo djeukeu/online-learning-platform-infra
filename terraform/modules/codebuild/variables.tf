@@ -19,9 +19,10 @@ variable "region" {
 
 variable "github" {
   type = object({
-    repo_url  = string
-    branch    = string
-    buildspec = string
+    repo_url   = string
+    branch     = string
+    buildspec  = string
+    token      = string
   })
 }
 
