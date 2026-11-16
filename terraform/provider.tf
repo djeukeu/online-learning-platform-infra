@@ -1,29 +1,35 @@
-# terraform {
-#   required_version = ">= 1.12"
-#   required_providers {
-#     aws = {
-#       source  = "hashicorp/aws"
-#       version = "6.5.0"
-#     }
-#     helm = {
-#       source  = "hashicorp/helm"
-#       version = "3.0.2"
-#     }
-#   }
-#   backend "s3" {
-#     bucket               = "djeukeu-terraform-state"
-#     key                  = "online-learning/terraform.tfstate"
-#     region               = "us-east-2"
-#     use_lockfile         = true
-#     workspace_key_prefix = "online-learning"
-#   }
-# }
+terraform {
+  required_version = ">= 1.12"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+    # helm = {
+    #   source  = "hashicorp/helm"
+    #   version = "3.0.2"
+    # }
+  }
 
-# provider "aws" {
-#   access_key = var.access_key
-#   secret_key = var.secret_key
-#   region     = var.region
-# }
+  backend "s3" {
+    bucket       = "djeukeu-terraform-state"
+    key          = "online-learning/terraform.tfstate"
+    region       = "us-east-2"
+    use_lockfile = true
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+
+    default_tags {
+    tags = {
+      project     = var.app_name
+      managedBy   = "Terraform"
+      environment = var.environment
+    }
+  }
+}
 
 # provider "helm" {
 #   kubernetes = {
