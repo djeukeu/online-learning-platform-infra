@@ -7,6 +7,14 @@ resource "aws_security_group" "db_sg" {
   }
 }
 
+resource "aws_security_group_rule" "db_sg_rule" {
+  type                     = "ingress"
+  from_port                = var.port
+  to_port                  = var.port
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.db_sg.id
+  source_security_group_id = var.source_sg_id
+}
 
 resource "aws_db_subnet_group" "db_subnets" {
   name       = "${var.name}-db-subnet"
@@ -14,7 +22,7 @@ resource "aws_db_subnet_group" "db_subnets" {
 }
 
 resource "aws_secretsmanager_secret_rotation" "rds_secret_rotation" {
-  secret_id           = aws_db_instance.db_instance.master_user_secret[0].secret_arn
+  secret_id = aws_db_instance.db_instance.master_user_secret[0].secret_arn
 
   rotation_rules {
     automatically_after_days = 30
@@ -34,7 +42,7 @@ resource "aws_db_instance" "db_instance" {
   db_name  = "${var.name}_db"
   username = "${var.name}_user"
 
-  manage_master_user_password   = true
+  manage_master_user_password = true
 
   db_subnet_group_name   = aws_db_subnet_group.db_subnets.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
