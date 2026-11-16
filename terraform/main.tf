@@ -47,5 +47,25 @@ module "auth_db" {
   subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
   port         = var.auth.db_port
   engine       = var.auth.db_engine
-  source_sg_id = aws_security_group.codebuild_sg.id
+  source_sg_id = module.auth_db_build.codebuild_sg_id
+}
+
+module "auth_db_build" {
+  source      = "./modules/codebuild"
+  name        = var.auth.app_name
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.auth.app_repo_url
+    branch    = var.auth.app_branch
+    buildspec = var.auth.app_buildspec
+  }
+  db = {
+    name       = module.auth_db.db_name
+    port       = module.auth_db.db_port
+    secret_arn = module.auth_db.db_secret_arn
+    address    = module.auth_db.db_address
+  }
 }

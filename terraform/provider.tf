@@ -22,7 +22,7 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-    default_tags {
+  default_tags {
     tags = {
       project     = var.app_name
       managedBy   = "Terraform"

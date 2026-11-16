@@ -18,8 +18,11 @@ variable "environment" {
 
 variable "auth" {
   type = object({
-    app_name  = string
-    db_port   = number
-    db_engine = string
+    app_name      = string
+    db_port       = number
+    db_engine     = string
+    app_repo_url  = string
+    app_branch    = string
+    app_buildspec = string
   })
 }
