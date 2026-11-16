@@ -30,6 +30,7 @@ jobs:
         uses: terraform-linters/setup-tflint@v6
         with:
           tflint_version_file: .tflint-version
+          tflint_config_path: ./terraform/.tflint.hcl
           cache: true
       - name: TFLint Init
         run: tflint --init
