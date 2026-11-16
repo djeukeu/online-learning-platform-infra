@@ -62,6 +62,70 @@ module "auth_image_build" {
   }
 }
 
+############################
+# Course Service Resources
+############################
+
+resource "aws_ecr_repository" "course_ecr_repo" {
+  name                 = "${var.course.app_name}-repo"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+module "course_db" {
+  source       = "./modules/rds"
+  name         = var.course.app_name
+  vpc_id       = aws_vpc.vpc.id
+  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
+  port         = var.course.db_port
+  engine       = var.course.db_engine
+  source_sg_id = module.course_db_build.codebuild_sg_id
+}
+
+module "course_db_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.course.app_name}-db"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.course.app_repo_url
+    branch    = var.course.app_repo_branch
+    buildspec = var.course.db_buildspec
+    token     = var.github_token
+  }
+  db = {
+    name       = module.course_db.db_name
+    port       = module.course_db.db_port
+    secret_arn = module.course_db.db_secret_arn
+    address    = module.course_db.db_address
+  }
+}
+
+module "course_image_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.course.app_name}-image"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.course.app_repo_url
+    branch    = var.course.app_repo_branch
+    buildspec = var.course.image_buildspec
+    token     = var.github_token
+  }
+  ecr_repo = {
+    arn  = aws_ecr_repository.course_ecr_repo.arn
+    name = aws_ecr_repository.course_ecr_repo.name
+  }
+}
+
 # resource "aws_eks_cluster" "eks_cluster" {
 #   name     = var.app_name
 #   role_arn = aws_iam_role.eks_cluster_role.arn
