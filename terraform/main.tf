@@ -1,3 +1,67 @@
+############################
+# Auth Service Resources
+############################
+
+resource "aws_ecr_repository" "auth_ecr_repo" {
+  name                 = "${var.auth.app_name}-repo"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+module "auth_db" {
+  source       = "./modules/rds"
+  name         = var.auth.app_name
+  vpc_id       = aws_vpc.vpc.id
+  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
+  port         = var.auth.db_port
+  engine       = var.auth.db_engine
+  source_sg_id = module.auth_db_build.codebuild_sg_id
+}
+
+module "auth_db_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.auth.app_name}-db"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.auth.app_repo_url
+    branch    = var.auth.app_repo_branch
+    buildspec = var.auth.db_buildspec
+    token     = var.github_token
+  }
+  db = {
+    name       = module.auth_db.db_name
+    port       = module.auth_db.db_port
+    secret_arn = module.auth_db.db_secret_arn
+    address    = module.auth_db.db_address
+  }
+}
+
+module "auth_image_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.auth.app_name}-image"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.auth.app_repo_url
+    branch    = var.auth.app_repo_branch
+    buildspec = var.auth.image_buildspec
+    token     = var.github_token
+  }
+  ecr_repo = {
+    arn  = aws_ecr_repository.auth_ecr_repo.arn
+    name = aws_ecr_repository.auth_ecr_repo.name
+  }
+}
+
 # resource "aws_eks_cluster" "eks_cluster" {
 #   name     = var.app_name
 #   role_arn = aws_iam_role.eks_cluster_role.arn
@@ -40,33 +104,4 @@
 #   ]
 # }
 
-module "auth_db" {
-  source       = "./modules/rds"
-  name         = var.auth.app_name
-  vpc_id       = aws_vpc.vpc.id
-  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
-  port         = var.auth.db_port
-  engine       = var.auth.db_engine
-  source_sg_id = module.auth_db_build.codebuild_sg_id
-}
 
-module "auth_db_build" {
-  source      = "./modules/codebuild"
-  name        = var.auth.app_name
-  vpc_id      = aws_vpc.vpc.id
-  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
-  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
-  region      = var.aws_region
-  github = {
-    repo_url  = var.auth.app_repo_url
-    branch    = var.auth.app_repo_branch
-    buildspec = var.auth.app_repo_buildspec
-    token     = var.github_token
-  }
-  db = {
-    name       = module.auth_db.db_name
-    port       = module.auth_db.db_port
-    secret_arn = module.auth_db.db_secret_arn
-    address    = module.auth_db.db_address
-  }
-}

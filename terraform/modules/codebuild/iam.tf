@@ -15,6 +15,7 @@ data "aws_iam_policy_document" "codebuild_assume_role" {
 data "aws_iam_policy_document" "codebuild_policy" {
 
   statement {
+    effect = "Allow"
     actions = [
       "logs:CreateLogStream",
       "logs:PutLogEvents",
@@ -44,6 +45,29 @@ data "aws_iam_policy_document" "codebuild_policy" {
       actions   = ["secretsmanager:GetSecretValue"]
       resources = [var.db.secret_arn]
     }
+  }
+
+  dynamic "statement" {
+    for_each = var.ecr_repo != null ? [1] : []
+    content {
+      effect = "Allow"
+      actions = [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+      ]
+      resources = [var.ecr_repo.arn]
+    }
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
   }
 
   statement {

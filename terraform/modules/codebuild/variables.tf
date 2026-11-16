@@ -13,16 +13,25 @@ variable "db" {
   default  = null
 }
 
+variable "ecr_repo" {
+  type = object({
+    arn  = string
+    name = string
+  })
+  nullable = true
+  default  = null
+}
+
 variable "region" {
   type = string
 }
 
 variable "github" {
   type = object({
-    repo_url   = string
-    branch     = string
-    buildspec  = string
-    token      = string
+    repo_url  = string
+    branch    = string
+    buildspec = string
+    token     = string
   })
 }
 

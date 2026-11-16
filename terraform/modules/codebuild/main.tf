@@ -38,7 +38,7 @@ resource "aws_codebuild_project" "codebuild" {
     image                       = "aws/codebuild/amazonlinux-x86_64-standard:6.0"
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
-
+    privileged_mode             = var.ecr_repo != null ? true : false
 
     dynamic "environment_variable" {
       for_each = var.db != null ? {
@@ -52,6 +52,19 @@ resource "aws_codebuild_project" "codebuild" {
       content {
         name  = environment_variable.key
         type  = environment_variable.value.type
+        value = environment_variable.value.value
+      }
+    }
+
+    dynamic "environment_variable" {
+      for_each = var.ecr_repo != null ? {
+        AWS_ACCOUNT_ID = { value = data.aws_caller_identity.current.account_id }
+        AWS_REGION     = { value = var.region }
+        REPO_NAME      = { value = var.ecr_repo.name }
+      } : {}
+
+      content {
+        name  = environment_variable.key
         value = environment_variable.value.value
       }
     }
