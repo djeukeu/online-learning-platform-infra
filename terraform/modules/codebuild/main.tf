@@ -1,0 +1,81 @@
+resource "aws_security_group" "codebuild_sg" {
+  name_prefix = "${var.name}-codebuild-sg"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+}
+
+resource "aws_codebuild_project" "codebuild" {
+  name          = var.name
+  description   = "Build for ${var.name}"
+  service_role  = aws_iam_role.codebuild_role.arn
+  build_timeout = 30
+
+  source {
+    type                = "GITHUB"
+    location            = var.github.repo_url
+    git_clone_depth     = 1
+    report_build_status = true
+    buildspec           = var.github.buildspec
+  }
+
+  source_version = var.github.branch
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/amazonlinux-x86_64-standard:6.0"
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+
+    dynamic "environment_variable" {
+      for_each = var.db != null ? {
+        DB_USERNAME = { type = "SECRETS_MANAGER", value = "${var.db.secret_arn}:username" }
+        DB_PASSWORD = { type = "SECRETS_MANAGER", value = "${var.db.secret_arn}:password" }
+        DB_HOST     = { type = "PLAINTEXT", value = var.db.address }
+        DB_PORT     = { type = "PLAINTEXT", value = tostring(var.db.port) }
+        DB_NAME     = { type = "PLAINTEXT", value = var.db.name }
+      } : {}
+
+      content {
+        name  = environment_variable.key
+        type  = environment_variable.value.type
+        value = environment_variable.value.value
+      }
+    }
+
+  }
+
+  artifacts {
+    type = "NO_ARTIFACTS"
+  }
+
+  cache {
+    type     = "S3"
+    location = aws_s3_bucket.codebuild_s3_cache.bucket
+  }
+
+  logs_config {
+    cloudwatch_logs {
+      group_name = aws_cloudwatch_log_group.codebuild_log_group.name
+      status     = "ENABLED"
+    }
+  }
+
+  vpc_config {
+    vpc_id = var.vpc_id
+
+    subnets = var.subnet_ids
+
+    security_group_ids = [
+      aws_security_group.codebuild_sg.id,
+    ]
+  }
+
+}
