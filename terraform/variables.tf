@@ -43,3 +43,15 @@ variable "course" {
     image_buildspec = string
   })
 }
+
+variable "payment" {
+  type = object({
+    app_name        = string
+    db_port         = number
+    db_engine       = string
+    app_repo_url    = string
+    app_repo_branch = string
+    db_buildspec    = string
+    image_buildspec = string
+  })
+}

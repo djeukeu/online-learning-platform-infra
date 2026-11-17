@@ -126,6 +126,70 @@ module "course_image_build" {
   }
 }
 
+############################
+# Payment Service Resources
+############################
+
+resource "aws_ecr_repository" "payment_ecr_repo" {
+  name                 = "${var.payment.app_name}-repo"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+module "payment_db" {
+  source       = "./modules/rds"
+  name         = var.payment.app_name
+  vpc_id       = aws_vpc.vpc.id
+  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
+  port         = var.payment.db_port
+  engine       = var.payment.db_engine
+  source_sg_id = module.payment_db_build.codebuild_sg_id
+}
+
+module "payment_db_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.payment.app_name}-db"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.payment.app_repo_url
+    branch    = var.payment.app_repo_branch
+    buildspec = var.payment.db_buildspec
+    token     = var.github_token
+  }
+  db = {
+    name       = module.payment_db.db_name
+    port       = module.payment_db.db_port
+    secret_arn = module.payment_db.db_secret_arn
+    address    = module.payment_db.db_address
+  }
+}
+
+module "payment_image_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.payment.app_name}-image"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.payment.app_repo_url
+    branch    = var.payment.app_repo_branch
+    buildspec = var.payment.image_buildspec
+    token     = var.github_token
+  }
+  ecr_repo = {
+    arn  = aws_ecr_repository.payment_ecr_repo.arn
+    name = aws_ecr_repository.payment_ecr_repo.name
+  }
+}
+
 # resource "aws_eks_cluster" "eks_cluster" {
 #   name     = var.app_name
 #   role_arn = aws_iam_role.eks_cluster_role.arn
