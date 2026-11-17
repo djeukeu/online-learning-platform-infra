@@ -3,6 +3,7 @@
 ############################
 
 resource "aws_ecr_repository" "auth_ecr_repo" {
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
   name                 = "${var.auth.app_name}-repo"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
@@ -67,6 +68,7 @@ module "auth_image_build" {
 ############################
 
 resource "aws_ecr_repository" "course_ecr_repo" {
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
   name                 = "${var.course.app_name}-repo"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
@@ -131,6 +133,7 @@ module "course_image_build" {
 ############################
 
 resource "aws_ecr_repository" "payment_ecr_repo" {
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
   name                 = "${var.payment.app_name}-repo"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true

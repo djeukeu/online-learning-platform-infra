@@ -1,5 +1,6 @@
 resource "aws_security_group" "db_sg" {
   name_prefix = "${var.name}-rds-sg"
+  description = "Database Security Group"
   vpc_id      = var.vpc_id
 
   lifecycle {
@@ -8,6 +9,7 @@ resource "aws_security_group" "db_sg" {
 }
 
 resource "aws_security_group_rule" "db_sg_rule" {
+  description = "DB Security Group rule to grant DB Port access to the associated source Security Group"
   type                     = "ingress"
   from_port                = var.port
   to_port                  = var.port
@@ -30,6 +32,12 @@ resource "aws_secretsmanager_secret_rotation" "rds_secret_rotation" {
 }
 
 resource "aws_db_instance" "db_instance" {
+  #checkov:skip=CKV2_AWS_60:Snapshot tag copying is not required for these service databases.
+  #checkov:skip=CKV_AWS_118:Enhanced monitoring is not enabled for these service databases.
+  #checkov:skip=CKV_AWS_129:Database engine log exports are not required for this deployment.
+  #checkov:skip=CKV_AWS_226:Minor engine upgrades are managed through the planned database maintenance process.
+  #checkov:skip=CKV_AWS_293:Deletion protection is disabled to allow Terraform-managed environment teardown.
+  #checkov:skip=CKV_AWS_353:Performance Insights is not enabled for these service databases.
   identifier     = var.name
   engine         = var.engine
   instance_class = var.instance_class

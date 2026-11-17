@@ -37,23 +37,23 @@ jobs:
       - name: TFLint
         run: |
           tflint
-  # tf_policy_check:
-  #   runs-on: ubuntu-26.04
-  #   defaults:
-  #     run:
-  #       working-directory: ./terraform
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v7
-  #       with:
-  #         fetch-depth: 0
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v7
-  #       with:
-  #         python-version: '3.12'
-  #     - name: Checkov
-  #       uses: bridgecrewio/checkov-action@master
-  #       with:
-  #         directory: ./
-  #         quiet: true
-  #         framework: terraform 
+  tf_policy_check:
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: ./
+          quiet: true
+          framework: terraform
