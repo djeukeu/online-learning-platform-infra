@@ -1,77 +1,238 @@
-resource "aws_eks_cluster" "eks_cluster" {
-  name     = var.app_name
-  role_arn = aws_iam_role.eks_cluster_role.arn
-  version  = "1.32"
+############################
+# Auth Service Resources
+############################
 
-  access_config {
-    authentication_mode = "API"
+resource "aws_ecr_repository" "auth_ecr_repo" {
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
+  name                 = "${var.auth.app_name}-repo"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
   }
-
-  vpc_config {
-    subnet_ids              = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
-    endpoint_private_access = true
-    endpoint_public_access  = true
-  }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
-  ]
-}
-
-
-resource "aws_eks_node_group" "node_group" {
-  cluster_name    = aws_eks_cluster.eks_cluster.name
-  node_group_name = "${var.app_name}-node-group"
-  node_role_arn   = aws_iam_role.eks_node_group_role.arn
-  subnet_ids      = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
-
-  scaling_config {
-    desired_size = 1
-    max_size     = 3
-    min_size     = 1
-  }
-
-  instance_types = ["t3.medium"]
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
-  ]
 }
 
 module "auth_db" {
-  source            = "./modules/database"
-  app_name          = var.auth.app_name
-  vpc_id            = aws_vpc.vpc.id
-  subnet_ids        = [for subnet in aws_subnet.public_subnet : subnet.id]
-  db_username       = var.auth.db_username
-  db_password       = var.auth.db_password
-  db_port           = var.auth.db_port
-  db_engine         = var.auth.db_engine
-  db_engine_version = var.auth.db_engine_version
+  source       = "./modules/rds"
+  name         = var.auth.app_name
+  vpc_id       = aws_vpc.vpc.id
+  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
+  port         = var.auth.db_port
+  engine       = var.auth.db_engine
+  source_sg_id = module.auth_db_build.codebuild_sg_id
 }
 
-module "payment_db" {
-  source            = "./modules/database"
-  app_name          = var.payment.app_name
-  vpc_id            = aws_vpc.vpc.id
-  subnet_ids        = [for subnet in aws_subnet.public_subnet : subnet.id]
-  db_username       = var.payment.db_username
-  db_password       = var.payment.db_password
-  db_port           = var.payment.db_port
-  db_engine         = var.payment.db_engine
-  db_engine_version = var.payment.db_engine_version
+module "auth_db_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.auth.app_name}-db"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.auth.app_repo_url
+    branch    = var.auth.app_repo_branch
+    buildspec = var.auth.db_buildspec
+    token     = var.github_token
+  }
+  db = {
+    name       = module.auth_db.db_name
+    port       = module.auth_db.db_port
+    secret_arn = module.auth_db.db_secret_arn
+    address    = module.auth_db.db_address
+  }
+}
+
+module "auth_image_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.auth.app_name}-image"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.auth.app_repo_url
+    branch    = var.auth.app_repo_branch
+    buildspec = var.auth.image_buildspec
+    token     = var.github_token
+  }
+  ecr_repo = {
+    arn  = aws_ecr_repository.auth_ecr_repo.arn
+    name = aws_ecr_repository.auth_ecr_repo.name
+  }
+}
+
+############################
+# Course Service Resources
+############################
+
+resource "aws_ecr_repository" "course_ecr_repo" {
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
+  name                 = "${var.course.app_name}-repo"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
 module "course_db" {
-  source            = "./modules/database"
-  app_name          = var.course.app_name
-  vpc_id            = aws_vpc.vpc.id
-  subnet_ids        = [for subnet in aws_subnet.public_subnet : subnet.id]
-  db_username       = var.course.db_username
-  db_password       = var.course.db_password
-  db_port           = var.course.db_port
-  db_engine         = var.course.db_engine
-  db_engine_version = var.course.db_engine_version
+  source       = "./modules/rds"
+  name         = var.course.app_name
+  vpc_id       = aws_vpc.vpc.id
+  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
+  port         = var.course.db_port
+  engine       = var.course.db_engine
+  source_sg_id = module.course_db_build.codebuild_sg_id
 }
+
+module "course_db_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.course.app_name}-db"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.course.app_repo_url
+    branch    = var.course.app_repo_branch
+    buildspec = var.course.db_buildspec
+    token     = var.github_token
+  }
+  db = {
+    name       = module.course_db.db_name
+    port       = module.course_db.db_port
+    secret_arn = module.course_db.db_secret_arn
+    address    = module.course_db.db_address
+  }
+}
+
+module "course_image_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.course.app_name}-image"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.course.app_repo_url
+    branch    = var.course.app_repo_branch
+    buildspec = var.course.image_buildspec
+    token     = var.github_token
+  }
+  ecr_repo = {
+    arn  = aws_ecr_repository.course_ecr_repo.arn
+    name = aws_ecr_repository.course_ecr_repo.name
+  }
+}
+
+############################
+# Payment Service Resources
+############################
+
+resource "aws_ecr_repository" "payment_ecr_repo" {
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
+  name                 = "${var.payment.app_name}-repo"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+module "payment_db" {
+  source       = "./modules/rds"
+  name         = var.payment.app_name
+  vpc_id       = aws_vpc.vpc.id
+  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
+  port         = var.payment.db_port
+  engine       = var.payment.db_engine
+  source_sg_id = module.payment_db_build.codebuild_sg_id
+}
+
+module "payment_db_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.payment.app_name}-db"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.payment.app_repo_url
+    branch    = var.payment.app_repo_branch
+    buildspec = var.payment.db_buildspec
+    token     = var.github_token
+  }
+  db = {
+    name       = module.payment_db.db_name
+    port       = module.payment_db.db_port
+    secret_arn = module.payment_db.db_secret_arn
+    address    = module.payment_db.db_address
+  }
+}
+
+module "payment_image_build" {
+  source      = "./modules/codebuild"
+  name        = "${var.payment.app_name}-image"
+  vpc_id      = aws_vpc.vpc.id
+  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
+  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
+  region      = var.aws_region
+  github = {
+    repo_url  = var.payment.app_repo_url
+    branch    = var.payment.app_repo_branch
+    buildspec = var.payment.image_buildspec
+    token     = var.github_token
+  }
+  ecr_repo = {
+    arn  = aws_ecr_repository.payment_ecr_repo.arn
+    name = aws_ecr_repository.payment_ecr_repo.name
+  }
+}
+
+# resource "aws_eks_cluster" "eks_cluster" {
+#   name     = var.app_name
+#   role_arn = aws_iam_role.eks_cluster_role.arn
+#   version  = "1.32"
+
+#   access_config {
+#     authentication_mode = "API"
+#   }
+
+#   vpc_config {
+#     subnet_ids              = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
+#     endpoint_private_access = true
+#     endpoint_public_access  = true
+#   }
+
+#   depends_on = [
+#     aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
+#   ]
+# }
+
+
+# resource "aws_eks_node_group" "node_group" {
+#   cluster_name    = aws_eks_cluster.eks_cluster.name
+#   node_group_name = "${var.app_name}-node-group"
+#   node_role_arn   = aws_iam_role.eks_node_group_role.arn
+#   subnet_ids      = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
+
+#   scaling_config {
+#     desired_size = 1
+#     max_size     = 3
+#     min_size     = 1
+#   }
+
+#   instance_types = ["t3.medium"]
+
+#   depends_on = [
+#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
+#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
+#     aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
+#   ]
+# }
+
+
