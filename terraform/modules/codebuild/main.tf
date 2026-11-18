@@ -79,11 +79,6 @@ resource "aws_codebuild_project" "codebuild" {
     type = "NO_ARTIFACTS"
   }
 
-  cache {
-    type     = "S3"
-    location = aws_s3_bucket.codebuild_s3_cache.bucket
-  }
-
   logs_config {
     cloudwatch_logs {
       group_name = aws_cloudwatch_log_group.codebuild_log_group.name
