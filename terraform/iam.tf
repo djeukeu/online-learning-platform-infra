@@ -1,3 +1,52 @@
+locals {
+  service_account = "${var.app_name}-helm-role"
+}
+resource "aws_iam_openid_connect_provider" "eks_oidc" {
+  client_id_list = ["sts.amazonaws.com"]
+  url            = aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer
+}
+
+data "aws_iam_policy_document" "helm_assume_role" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:${local.service_account}"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer, "https://", "")}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.eks_oidc.arn]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "helm_role" {
+  assume_role_policy = data.aws_iam_policy_document.helm_assume_role.json
+  name               = local.service_account
+}
+
+resource "aws_iam_role_policy_attachment" "helm_role_attach" {
+  role       = aws_iam_role.helm_role
+  policy_arn = aws_iam_policy.helm_policy.arn
+}
+
+resource "aws_iam_policy" "helm_policy" {
+  name   = "${var.app_name}-helm-role-policy"
+  policy = file("${path.module}/helm_iam_policy.json")
+}
+
+
+
 # resource "aws_iam_role" "eks_cluster_role" {
 #   name                  = "${var.app_name}-eks-cluster-role"
 #   force_detach_policies = true

@@ -193,46 +193,56 @@ module "payment_image_build" {
   }
 }
 
-# resource "aws_eks_cluster" "eks_cluster" {
-#   name     = var.app_name
-#   role_arn = aws_iam_role.eks_cluster_role.arn
-#   version  = "1.32"
+############################
+# Cluster
+############################
 
-#   access_config {
-#     authentication_mode = "API"
-#   }
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = "${var.app_name}-cluster"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+  version  = "1.37"
 
-#   vpc_config {
-#     subnet_ids              = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
-#     endpoint_private_access = true
-#     endpoint_public_access  = true
-#   }
+  access_config {
+    authentication_mode = "API"
+  }
 
-#   depends_on = [
-#     aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
-#   ]
-# }
+  vpc_config {
+    subnet_ids              = [for subnet in aws_subnet.private_subnet : subnet.id]
+    endpoint_private_access = true
+    endpoint_public_access  = true
+
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
+  ]
+}
 
 
-# resource "aws_eks_node_group" "node_group" {
-#   cluster_name    = aws_eks_cluster.eks_cluster.name
-#   node_group_name = "${var.app_name}-node-group"
-#   node_role_arn   = aws_iam_role.eks_node_group_role.arn
-#   subnet_ids      = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
+resource "aws_eks_node_group" "eks_node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "${var.app_name}-node-group"
+  node_role_arn   = aws_iam_role.eks_node_group_role.arn
+  subnet_ids      = [for subnet in aws_subnet.private_subnet : subnet.id]
 
-#   scaling_config {
-#     desired_size = 1
-#     max_size     = 3
-#     min_size     = 1
-#   }
+  scaling_config {
+    desired_size = length(aws_subnet.private_subnet)
+    min_size     = length(aws_subnet.private_subnet)
+    max_size     = length(aws_subnet.private_subnet) * 2
+  }
 
-#   instance_types = ["t3.medium"]
+  instance_types = ["t3.medium"]
+  ami_type = "AL2023_x86_64_STANDARD"
 
-#   depends_on = [
-#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
-#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
-#     aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
-#   ]
-# }
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
+  ]
+}
 
 
