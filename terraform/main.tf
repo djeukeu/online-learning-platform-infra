@@ -1,10 +1,8 @@
-############################
-# Auth Service Resources
-############################
-
-resource "aws_ecr_repository" "auth_ecr_repo" {
+resource "aws_ecr_repository" "ecr_repo" {
   #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
-  name                 = "${var.auth.app_name}-repo"
+  for_each = { for service in var.services : service.name => service }
+
+  name                 = "${each.value.name}-repo"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
 
@@ -13,183 +11,73 @@ resource "aws_ecr_repository" "auth_ecr_repo" {
   }
 }
 
-module "auth_db" {
-  source       = "./modules/rds"
-  name         = var.auth.app_name
-  vpc_id       = aws_vpc.vpc.id
-  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
-  port         = var.auth.db_port
-  engine       = var.auth.db_engine
-  source_sg_id = module.auth_db_build.codebuild_sg_id
+module "database" {
+  for_each = { for service in var.services : service.name => service }
+
+  source = "./modules/rds"
+
+  name       = each.value.name
+  vpc_id     = aws_vpc.vpc.id
+  subnet_ids = [for subnet in aws_subnet.private_subnet : subnet.id]
+  port       = each.value.db_port
+  engine     = each.value.db_engine
 }
 
-module "auth_db_build" {
-  source      = "./modules/codebuild"
-  name        = "${var.auth.app_name}-db"
+resource "aws_security_group_rule" "db_sg_rule" {
+  for_each = { for service in var.services : service.name => service }
+
+  description              = "DB Security Group rule to grant DB Port access to the associated codebuild Source Security Group"
+  type                     = "ingress"
+  from_port                = module.database[each.key].db_port
+  to_port                  = module.database[each.key].db_port
+  protocol                 = "tcp"
+  security_group_id        = module.database[each.key].db_security_group_id
+  source_security_group_id = module.database_build[each.key].codebuild_sg_id
+}
+
+module "database_build" {
+  for_each = { for service in var.services : service.name => service }
+
+  source = "./modules/codebuild"
+
+  name        = "${each.value.name}-db"
   vpc_id      = aws_vpc.vpc.id
   subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
   subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
   region      = var.aws_region
   github = {
-    repo_url  = var.auth.app_repo_url
-    branch    = var.auth.app_repo_branch
-    buildspec = var.auth.db_buildspec
+    repo_url  = each.value.repo_url
+    branch    = each.value.repo_branch
+    buildspec = each.value.db_buildspec
     token     = var.github_token
   }
   db = {
-    name       = module.auth_db.db_name
-    port       = module.auth_db.db_port
-    secret_arn = module.auth_db.db_secret_arn
-    address    = module.auth_db.db_address
+    name       = module.database[each.key].db_name
+    port       = module.database[each.key].db_port
+    secret_arn = module.database[each.key].db_secret_arn
+    address    = module.database[each.key].db_address
   }
 }
 
-module "auth_image_build" {
-  source      = "./modules/codebuild"
-  name        = "${var.auth.app_name}-image"
+module "image_build" {
+  for_each = { for service in var.services : service.name => service }
+
+  source = "./modules/codebuild"
+
+  name        = "${each.value.name}-image"
   vpc_id      = aws_vpc.vpc.id
   subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
   subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
   region      = var.aws_region
   github = {
-    repo_url  = var.auth.app_repo_url
-    branch    = var.auth.app_repo_branch
-    buildspec = var.auth.image_buildspec
+    repo_url  = each.value.repo_url
+    branch    = each.value.repo_branch
+    buildspec = each.value.image_buildspec
     token     = var.github_token
   }
   ecr_repo = {
-    arn  = aws_ecr_repository.auth_ecr_repo.arn
-    name = aws_ecr_repository.auth_ecr_repo.name
-  }
-}
-
-############################
-# Course Service Resources
-############################
-
-resource "aws_ecr_repository" "course_ecr_repo" {
-  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
-  name                 = "${var.course.app_name}-repo"
-  image_tag_mutability = "IMMUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-module "course_db" {
-  source       = "./modules/rds"
-  name         = var.course.app_name
-  vpc_id       = aws_vpc.vpc.id
-  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
-  port         = var.course.db_port
-  engine       = var.course.db_engine
-  source_sg_id = module.course_db_build.codebuild_sg_id
-}
-
-module "course_db_build" {
-  source      = "./modules/codebuild"
-  name        = "${var.course.app_name}-db"
-  vpc_id      = aws_vpc.vpc.id
-  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
-  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
-  region      = var.aws_region
-  github = {
-    repo_url  = var.course.app_repo_url
-    branch    = var.course.app_repo_branch
-    buildspec = var.course.db_buildspec
-    token     = var.github_token
-  }
-  db = {
-    name       = module.course_db.db_name
-    port       = module.course_db.db_port
-    secret_arn = module.course_db.db_secret_arn
-    address    = module.course_db.db_address
-  }
-}
-
-module "course_image_build" {
-  source      = "./modules/codebuild"
-  name        = "${var.course.app_name}-image"
-  vpc_id      = aws_vpc.vpc.id
-  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
-  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
-  region      = var.aws_region
-  github = {
-    repo_url  = var.course.app_repo_url
-    branch    = var.course.app_repo_branch
-    buildspec = var.course.image_buildspec
-    token     = var.github_token
-  }
-  ecr_repo = {
-    arn  = aws_ecr_repository.course_ecr_repo.arn
-    name = aws_ecr_repository.course_ecr_repo.name
-  }
-}
-
-############################
-# Payment Service Resources
-############################
-
-resource "aws_ecr_repository" "payment_ecr_repo" {
-  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
-  name                 = "${var.payment.app_name}-repo"
-  image_tag_mutability = "IMMUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-module "payment_db" {
-  source       = "./modules/rds"
-  name         = var.payment.app_name
-  vpc_id       = aws_vpc.vpc.id
-  subnet_ids   = [for subnet in aws_subnet.private_subnet : subnet.id]
-  port         = var.payment.db_port
-  engine       = var.payment.db_engine
-  source_sg_id = module.payment_db_build.codebuild_sg_id
-}
-
-module "payment_db_build" {
-  source      = "./modules/codebuild"
-  name        = "${var.payment.app_name}-db"
-  vpc_id      = aws_vpc.vpc.id
-  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
-  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
-  region      = var.aws_region
-  github = {
-    repo_url  = var.payment.app_repo_url
-    branch    = var.payment.app_repo_branch
-    buildspec = var.payment.db_buildspec
-    token     = var.github_token
-  }
-  db = {
-    name       = module.payment_db.db_name
-    port       = module.payment_db.db_port
-    secret_arn = module.payment_db.db_secret_arn
-    address    = module.payment_db.db_address
-  }
-}
-
-module "payment_image_build" {
-  source      = "./modules/codebuild"
-  name        = "${var.payment.app_name}-image"
-  vpc_id      = aws_vpc.vpc.id
-  subnet_ids  = [for subnet in aws_subnet.private_subnet : subnet.id]
-  subnet_arns = [for subnet in aws_subnet.private_subnet : subnet.arn]
-  region      = var.aws_region
-  github = {
-    repo_url  = var.payment.app_repo_url
-    branch    = var.payment.app_repo_branch
-    buildspec = var.payment.image_buildspec
-    token     = var.github_token
-  }
-  ecr_repo = {
-    arn  = aws_ecr_repository.payment_ecr_repo.arn
-    name = aws_ecr_repository.payment_ecr_repo.name
+    arn  = aws_ecr_repository.ecr_repo[each.key].arn
+    name = aws_ecr_repository.ecr_repo[each.key].name
   }
 }
 

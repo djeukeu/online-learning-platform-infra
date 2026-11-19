@@ -39,7 +39,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
       - name: Write terraform variable files
         run: |
-          echo '${{ secrets.TF_VARS }}' > terraform.tfvars
+          echo '${{ secrets.TF_STAGE_VARS }}' > terraform.tfvars
       - name: Terraform Init
         run: terraform init -backend-config="key=$TF_STATE_KEY"
       - name: Terraform Apply
