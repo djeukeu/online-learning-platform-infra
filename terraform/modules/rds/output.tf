@@ -13,3 +13,7 @@ output "db_address" {
 output "db_port" {
   value = aws_db_instance.db_instance.port
 }
+
+output "db_security_group_id" {
+  value = aws_security_group.db_sg.id
+}

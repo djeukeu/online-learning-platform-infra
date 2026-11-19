@@ -24,7 +24,3 @@ variable "instance_class" {
   type    = string
   default = "db.t3.micro"
 }
-
-variable "source_sg_id" {
-  type = string
-}

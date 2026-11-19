@@ -8,16 +8,6 @@ resource "aws_security_group" "db_sg" {
   }
 }
 
-resource "aws_security_group_rule" "db_sg_rule" {
-  description = "DB Security Group rule to grant DB Port access to the associated source Security Group"
-  type                     = "ingress"
-  from_port                = var.port
-  to_port                  = var.port
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.db_sg.id
-  source_security_group_id = var.source_sg_id
-}
-
 resource "aws_db_subnet_group" "db_subnets" {
   name       = "${var.name}-db-subnet"
   subnet_ids = var.subnet_ids
