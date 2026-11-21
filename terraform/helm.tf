@@ -30,8 +30,9 @@ resource "helm_release" "aws_lb_controller" {
     }
   ]
 
-   depends_on = [
+  depends_on = [
     aws_eks_node_group.eks_node_group,
     aws_iam_role_policy_attachment.helm_role_attach,
+    aws_eks_access_policy_association.admin_access_AmazonEKSClusterAdminPolicy,
   ]
 }
