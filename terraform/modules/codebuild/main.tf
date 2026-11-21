@@ -112,5 +112,12 @@ resource "aws_codebuild_webhook" "codebuild_webhook" {
       type    = "HEAD_REF"
       pattern = "^refs/heads/${var.github.branch}$"
     }
+    dynamic "filter" {
+      for_each = var.db != null ? [1] : []
+      content {
+        type    = "FILE_PATH"
+        pattern = var.db_migration_path
+      }
+    }
   }
 }
