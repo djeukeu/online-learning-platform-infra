@@ -102,6 +102,23 @@ resource "aws_eks_cluster" "eks_cluster" {
   ]
 }
 
+data "aws_caller_identity" "current" {}
+
+resource "aws_eks_access_entry" "admin_access" {
+  cluster_name  = aws_eks_cluster.eks_cluster.name
+  principal_arn = data.aws_caller_identity.current.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "admin_access_AmazonEKSClusterAdminPolicy" {
+  cluster_name  = aws_eks_cluster.eks_cluster.name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = aws_eks_access_entry.admin_access.principal_arn
+
+  access_scope {
+    type = "cluster"
+  }
+}
 
 resource "aws_eks_node_group" "eks_node_group" {
   cluster_name    = aws_eks_cluster.eks_cluster.name
@@ -116,7 +133,7 @@ resource "aws_eks_node_group" "eks_node_group" {
   }
 
   instance_types = ["t3.medium"]
-  ami_type = "AL2023_x86_64_STANDARD"
+  ami_type       = "AL2023_x86_64_STANDARD"
 
   lifecycle {
     ignore_changes = [scaling_config[0].desired_size]
