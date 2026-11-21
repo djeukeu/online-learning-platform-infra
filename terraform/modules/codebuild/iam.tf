@@ -25,21 +25,6 @@ data "aws_iam_policy_document" "codebuild_policy" {
     resources = ["${aws_cloudwatch_log_group.codebuild_log_group.arn}:*"]
   }
 
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:PutObject",
-      "s3:GetBucketAcl",
-      "s3:GetBucketLocation",
-    ]
-    resources = [
-      aws_s3_bucket.codebuild_s3_cache.arn,
-      "${aws_s3_bucket.codebuild_s3_cache.arn}/*",
-    ]
-  }
-
   dynamic "statement" {
     for_each = var.db != null ? [1] : []
     content {

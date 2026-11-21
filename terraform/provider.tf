@@ -5,15 +5,15 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-    # helm = {
-    #   source  = "hashicorp/helm"
-    #   version = "3.0.2"
-    # }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 3.0"
+    }
   }
 
   backend "s3" {
-    bucket = "djeukeu-terraform-state"
-    # key          = "online-learning/terraform.tfstate"
+    bucket       = "djeukeu-terraform-state"
+    key          = "online-learning/stage/terraform.tfstate"
     region       = "us-east-2"
     use_lockfile = true
   }
@@ -31,14 +31,14 @@ provider "aws" {
   }
 }
 
-# provider "helm" {
-#   kubernetes = {
-#     host                   = aws_eks_cluster.eks_cluster.endpoint
-#     cluster_ca_certificate = base64decode(aws_eks_cluster.eks_cluster.certificate_authority[0].data)
-#     exec = {
-#       api_version = "client.authentication.k8s.io/v1beta1"
-#       args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.eks_cluster.name]
-#       command     = "aws"
-#     }
-#   }
-# }
+provider "helm" {
+  kubernetes = {
+    host                   = aws_eks_cluster.eks_cluster.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.eks_cluster.certificate_authority[0].data)
+    exec = {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      args        = ["eks", "get-token", "--region", var.aws_region, "--cluster-name", aws_eks_cluster.eks_cluster.name]
+      command     = "aws"
+    }
+  }
+}

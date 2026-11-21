@@ -25,9 +25,9 @@ resource "aws_subnet" "public_subnet" {
   availability_zone       = each.value
   map_public_ip_on_launch = true
 
-  #   tags = {
-  #     "kubernetes.io/role/elb" = 1
-  #   }
+  tags = {
+    "kubernetes.io/role/elb" = 1
+  }
 }
 
 resource "aws_subnet" "private_subnet" {
@@ -40,9 +40,9 @@ resource "aws_subnet" "private_subnet" {
   )
   availability_zone = each.value
 
-  #   tags = {
-  #     "kubernetes.io/role/internal-elb" = 1
-  #   }
+  tags = {
+    "kubernetes.io/role/internal-elb" = 1
+  }
 }
 
 resource "aws_internet_gateway" "igw" {
