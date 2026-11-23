@@ -22,12 +22,6 @@ resource "aws_secretsmanager_secret_rotation" "rds_secret_rotation" {
 }
 
 resource "aws_db_instance" "db_instance" {
-  #checkov:skip=CKV2_AWS_60:Snapshot tag copying is not required for these service databases.
-  #checkov:skip=CKV_AWS_118:Enhanced monitoring is not enabled for these service databases.
-  #checkov:skip=CKV_AWS_129:Database engine log exports are not required for this deployment.
-  #checkov:skip=CKV_AWS_226:Minor engine upgrades are managed through the planned database maintenance process.
-  #checkov:skip=CKV_AWS_293:Deletion protection is disabled to allow Terraform-managed environment teardown.
-  #checkov:skip=CKV_AWS_353:Performance Insights is not enabled for these service databases.
   identifier     = var.name
   engine         = var.engine
   instance_class = var.instance_class
@@ -48,5 +42,23 @@ resource "aws_db_instance" "db_instance" {
 
   multi_az                = true
   backup_retention_period = 7
+  backup_window           = "02:00-03:00"
+  maintenance_window      = "sun:04:00-sun:05:00"
+  copy_tags_to_snapshot   = true
   skip_final_snapshot     = true
+
+  database_insights_mode                = "standard"
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+
+  monitoring_interval = 60
+  monitoring_role_arn = aws_iam_role.rds_monitoring.arn
+
+  enabled_cloudwatch_logs_exports = local.default_log_exports[var.engine]
+
+  depends_on = [
+    aws_iam_role_policy_attachment.rds_monitoring,
+    aws_cloudwatch_log_group.rds_log_group,
+  ]
+
 }
