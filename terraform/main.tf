@@ -94,11 +94,15 @@ resource "aws_eks_cluster" "eks_cluster" {
     subnet_ids              = [for subnet in aws_subnet.private_subnet : subnet.id]
     endpoint_private_access = true
     endpoint_public_access  = true
-
   }
+
+  enabled_cluster_log_types = [
+    "api", "audit", "authenticator", "controllerManager", "scheduler"
+  ]
 
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
+    aws_cloudwatch_log_group.eks_cluster_log_group
   ]
 }
 

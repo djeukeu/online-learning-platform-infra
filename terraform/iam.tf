@@ -96,3 +96,33 @@ resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEKS_CNI_Policy" 
   role       = aws_iam_role.eks_node_group_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
+
+data "aws_iam_policy_document" "cloudwatch_agent_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole", "sts:TagSession"]
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "cloudwatch_agent" {
+  name               = "${aws_eks_cluster.eks_cluster.name}-cw-agent"
+  assume_role_policy = data.aws_iam_policy_document.cloudwatch_agent_trust.json
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.cloudwatch_agent.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_eks_pod_identity_association" "cloudwatch_agent" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  namespace       = "amazon-cloudwatch"
+  service_account = "cloudwatch-agent"
+  role_arn        = aws_iam_role.cloudwatch_agent.arn
+
+  depends_on = [aws_eks_addon.eks_cluster_pod_identity]
+}
