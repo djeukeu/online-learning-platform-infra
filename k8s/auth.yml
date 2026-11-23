@@ -7,17 +7,22 @@ spec:
     app: auth
   type: ClusterIP
   ports:
-    - name: auth
+    - name: auth-port
       protocol: TCP
       port: 4001
-      targetPort: 4001
+      targetPort: auth-port
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-deployment
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: auth
@@ -26,10 +31,26 @@ spec:
       labels:
         app: auth
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: auth
       containers:
         - name: auth
-          image: djeukeu/online-learning-auth:1.0.4
-          imagePullPolicy: Always
+          image: djeukeu/online-learning-auth:1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: auth-port
+              containerPort: 4001
           resources:
             requests:
               memory: "128Mi"
@@ -37,41 +58,66 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "250m"
-          readinessProbe:
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
             httpGet:
               path: /health
-              port: 4001
-            initialDelaySeconds: 5
-            periodSeconds: 10
+              port: auth-port
+            periodSeconds: 5
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /health
-              port: 4001
-            initialDelaySeconds: 10
-            periodSeconds: 20
+              port: auth-port
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /db-health
+              port: auth-port
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
           env:
             - name: PORT
               valueFrom:
                 configMapKeyRef:
-                  name: env-auth
+                  name: auth-env
                   key: port
             - name: APP_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: env-auth
+                  name: auth-env
                   key: app_name
             - name: APP_ENV
               valueFrom:
                 configMapKeyRef:
-                  name: env-auth
+                  name: project-env
                   key: app_env
             - name: DATABASE_URL
               valueFrom:
-                configMapKeyRef:
-                  name: env-auth
+                secretKeyRef:
+                  name: auth-secrets
                   key: db_url
             - name: JWT
               valueFrom:
-                configMapKeyRef:
-                  name: env
+                secretKeyRef:
+                  name: project-secrets
                   key: jwt
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: auth

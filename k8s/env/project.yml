@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: project-env
+data:
+  app_env: '${APP_ENV}'
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: project-secrets
+type: Opaque
+stringData:
+  jwt: '${JWT_SECRET}'
