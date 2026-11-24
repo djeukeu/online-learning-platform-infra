@@ -36,3 +36,32 @@ resource "helm_release" "aws_lb_controller" {
     aws_eks_access_policy_association.admin_access_AmazonEKSClusterAdminPolicy,
   ]
 }
+
+resource "helm_release" "external_secrets" {
+  name             = "external-secrets"
+  namespace        = "external-secrets"
+  create_namespace = true
+  repository       = "https://charts.external-secrets.io"
+  chart            = "external-secrets"
+  version          = "2.15.0"
+
+  set = [
+    {
+      name  = "installCRDs"
+      value = "true"
+    },
+    {
+      name  = "serviceAccount.create"
+      value = "true"
+    },
+    {
+      name  = "serviceAccount.name"
+      value = "external-secrets"
+    },
+  ]
+
+  depends_on = [
+    aws_eks_node_group.eks_node_group,
+    aws_eks_pod_identity_association.eso,
+  ]
+}

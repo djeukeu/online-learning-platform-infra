@@ -97,7 +97,7 @@ resource "aws_iam_role_policy_attachment" "eks_node_group_AmazonEKS_CNI_Policy" 
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
 
-data "aws_iam_policy_document" "cloudwatch_agent_trust" {
+data "aws_iam_policy_document" "eks_pod_agent_trust" {
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole", "sts:TagSession"]
@@ -109,8 +109,8 @@ data "aws_iam_policy_document" "cloudwatch_agent_trust" {
 }
 
 resource "aws_iam_role" "cloudwatch_agent" {
-  name               = "${aws_eks_cluster.eks_cluster.name}-cw-agent"
-  assume_role_policy = data.aws_iam_policy_document.cloudwatch_agent_trust.json
+  name               = "${aws_eks_cluster.eks_cluster.name}-cw-agent-role"
+  assume_role_policy = data.aws_iam_policy_document.eks_pod_agent_trust.json
 }
 
 resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
@@ -118,11 +118,24 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
-resource "aws_eks_pod_identity_association" "cloudwatch_agent" {
-  cluster_name    = aws_eks_cluster.eks_cluster.name
-  namespace       = "amazon-cloudwatch"
-  service_account = "cloudwatch-agent"
-  role_arn        = aws_iam_role.cloudwatch_agent.arn
+resource "aws_iam_role" "eso" {
+  name               = "${aws_eks_cluster.eks_cluster.name}-external-secrets-role"
+  assume_role_policy = data.aws_iam_policy_document.eks_pod_agent_trust.json
+}
 
-  depends_on = [aws_eks_addon.eks_cluster_pod_identity]
+data "aws_iam_policy_document" "eso_secrets" {
+  dynamic "statement" {
+    for_each = module.database
+    content {
+      effect    = "Allow"
+      actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+      resources = [statement.value.db_secret_arn]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "eso_secrets" {
+  name   = "${aws_eks_cluster.eks_cluster.name}-external-secrets-policy"
+  role   = aws_iam_role.eso.id
+  policy = data.aws_iam_policy_document.eso_secrets.json
 }

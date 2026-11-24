@@ -106,24 +106,6 @@ resource "aws_eks_cluster" "eks_cluster" {
   ]
 }
 
-data "aws_caller_identity" "current" {}
-
-resource "aws_eks_access_entry" "admin_access" {
-  cluster_name  = aws_eks_cluster.eks_cluster.name
-  principal_arn = data.aws_caller_identity.current.arn
-  type          = "STANDARD"
-}
-
-resource "aws_eks_access_policy_association" "admin_access_AmazonEKSClusterAdminPolicy" {
-  cluster_name  = aws_eks_cluster.eks_cluster.name
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-  principal_arn = aws_eks_access_entry.admin_access.principal_arn
-
-  access_scope {
-    type = "cluster"
-  }
-}
-
 resource "aws_eks_node_group" "eks_node_group" {
   cluster_name    = aws_eks_cluster.eks_cluster.name
   node_group_name = "${var.app_name}-node-group"
@@ -150,4 +132,33 @@ resource "aws_eks_node_group" "eks_node_group" {
   ]
 }
 
+resource "aws_eks_addon" "eks_cluster_pod_agent" {
+  cluster_name = aws_eks_cluster.eks_cluster.name
+  addon_name   = "eks-pod-identity-agent"
+}
+
+resource "aws_eks_addon" "eks_cluster_cw_observability" {
+  cluster_name = aws_eks_cluster.eks_cluster.name
+  addon_name   = "amazon-cloudwatch-observability"
+
+  depends_on = [aws_eks_pod_identity_association.cloudwatch_agent]
+}
+
+resource "aws_eks_pod_identity_association" "cloudwatch_agent" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  namespace       = "amazon-cloudwatch"
+  service_account = "cloudwatch-agent"
+  role_arn        = aws_iam_role.cloudwatch_agent.arn
+
+  depends_on = [aws_eks_addon.eks_cluster_pod_agent]
+}
+
+resource "aws_eks_pod_identity_association" "eso" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  namespace       = "external-secrets"
+  service_account = "external-secrets"
+  role_arn        = aws_iam_role.eso.arn
+
+  depends_on = [aws_eks_addon.eks_cluster_pod_agent]
+}
 
