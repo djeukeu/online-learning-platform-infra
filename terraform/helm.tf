@@ -44,6 +44,7 @@ resource "helm_release" "external_secrets" {
   repository       = "https://charts.external-secrets.io"
   chart            = "external-secrets"
   version          = "2.15.0"
+  timeout          = 600
 
   set = [
     {
