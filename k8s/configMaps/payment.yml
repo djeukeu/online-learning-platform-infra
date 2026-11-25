@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-env
+data:
+  port: '4003'
+  app_name: 'online-learning-payment'

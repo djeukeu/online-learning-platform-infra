@@ -46,7 +46,7 @@ spec:
               app: payment
       containers:
         - name: payment
-          image: djeukeu/online-learning-payment:1
+          image: ${PAYMENT_IMAGE_URI}
           imagePullPolicy: IfNotPresent
           ports:
             - name: payment-port
