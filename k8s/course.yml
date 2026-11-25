@@ -46,7 +46,7 @@ spec:
               app: course
       containers:
         - name: course
-          image: djeukeu/online-learning-course:1
+          image: ${COURSE_IMAGE_URI}
           imagePullPolicy: IfNotPresent
           ports:
             - name: course-port
@@ -111,7 +111,6 @@ spec:
                 secretKeyRef:
                   name: project-secrets
                   key: jwt
-
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
