@@ -23,6 +23,10 @@ module "database" {
   engine     = each.value.db_engine
 }
 
+data "aws_eks_cluster" "eks_cluster_info" {
+  name = aws_eks_cluster.eks_cluster.name
+}
+
 resource "aws_security_group_rule" "db_sg_rule" {
   for_each = { for service in var.services : service.name => service }
 
@@ -33,6 +37,18 @@ resource "aws_security_group_rule" "db_sg_rule" {
   protocol                 = "tcp"
   security_group_id        = module.database[each.key].db_security_group_id
   source_security_group_id = module.database_build[each.key].codebuild_sg_id
+}
+
+resource "aws_security_group_rule" "db_cluster_sg_rule" {
+  for_each = { for service in var.services : service.name => service }
+
+  description              = "DB Security Group rule to grant DB Port access to EKS Cluster"
+  type                     = "ingress"
+  from_port                = module.database[each.key].db_port
+  to_port                  = module.database[each.key].db_port
+  protocol                 = "tcp"
+  security_group_id        = module.database[each.key].db_security_group_id
+  source_security_group_id = data.aws_eks_cluster.eks_cluster_info.vpc_config[0].cluster_security_group_id
 }
 
 module "database_build" {
