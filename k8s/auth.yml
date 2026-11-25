@@ -46,7 +46,7 @@ spec:
               app: auth
       containers:
         - name: auth
-          image: djeukeu/online-learning-auth:1
+          image: ${AUTH_IMAGE_URI}
           imagePullPolicy: IfNotPresent
           ports:
             - name: auth-port

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-env
+data:
+  port: '4001'
+  app_name: 'online-learning-auth'
