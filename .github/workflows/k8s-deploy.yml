@@ -14,7 +14,6 @@ on:
 permissions:
   id-token: write
   contents: read
-  actions: read
 
 env:
   TF_VERSION: 1.16.1
