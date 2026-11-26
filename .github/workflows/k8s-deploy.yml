@@ -1,0 +1,109 @@
+name: K8s Deploy
+run-name: ${{ github.actor }} triggered the K8s Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'k8s/**'
+      - 'k8s-prod/**'
+
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+env:
+  TF_VERSION: 1.16.1
+  TF_STATE_KEY: ${{ github.ref_name == 'master' && 'online-learning/terraform.tfstate' || 'online-learning/stage/terraform.tfstate' }}
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Read Terraform outputs
+        id: terraform-output
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform init -input=false -backend-config="key=$TF_STATE_KEY"
+          outputs_file="$RUNNER_TEMP/terraform-outputs.json"
+          terraform -chdir=terraform output -json > "$outputs_file"
+
+          eks_cluster_name=$(jq -er '.eks_cluster.value.name' "$outputs_file")
+          {
+            printf 'EKS_CLUSTER_NAME=%s\n' "$eks_cluster_name"
+            for service in auth course payment; do
+              service_key=$(printf '%s' "$service" | tr '[:lower:]' '[:upper:]')
+              db_secret_arn=$(jq -er --arg service "$service" '.db_secret_arns.value[$service]' "$outputs_file")
+              db_host=$(jq -er --arg service "$service" '.db_addresses.value[$service]' "$outputs_file")
+              db_port=$(jq -er --arg service "$service" '.db_ports.value[$service]' "$outputs_file")
+              db_name=$(jq -er --arg service "$service" '.db_names.value[$service]' "$outputs_file")
+              printf '%s_DB_SECRET_ARN=%s\n' "$service_key" "$db_secret_arn"
+              printf '%s_DB_HOST=%s\n' "$service_key" "$db_host"
+              printf '%s_DB_PORT=%s\n' "$service_key" "$db_port"
+              printf '%s_DB_NAME=%s\n' "$service_key" "$db_name"
+            done
+          } >> "$GITHUB_OUTPUT"
+      - name: Update kube config
+        run: aws eks update-kubeconfig --name ${{steps.terraform-output.outputs.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+      - name: Update and Apply k8s configMaps and secrets files
+        uses: swdotcom/update-and-apply-kubernetes-configs@v1
+        with:
+          k8-config-file-paths: |
+            k8s/configMaps/project.yml
+            k8s/configMaps/auth.yml
+            k8s/configMaps/course.yml
+            k8s/configMaps/payment.yml
+            k8s/secrets/project.yml
+            k8s/secrets/auth.yml
+            k8s/secrets/course.yml
+            k8s/secrets/payment.yml
+          replacement-method: all
+        env:
+          APP_ENV: ${{ github.ref_name == 'master' && 'production' || 'staging' }}
+          JWT_SECRET: ${{ secrets.APP_JWT }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AUTH_DB_SECRET_ARN: ${{ steps.terraform-output.outputs.AUTH_DB_SECRET_ARN }}
+          AUTH_DB_HOST: ${{ steps.terraform-output.outputs.AUTH_DB_HOST }}
+          AUTH_DB_PORT: ${{ steps.terraform-output.outputs.AUTH_DB_PORT }}
+          AUTH_DB_NAME: ${{ steps.terraform-output.outputs.AUTH_DB_NAME }}
+          COURSE_DB_SECRET_ARN: ${{ steps.terraform-output.outputs.COURSE_DB_SECRET_ARN }}
+          COURSE_DB_HOST: ${{ steps.terraform-output.outputs.COURSE_DB_HOST }}
+          COURSE_DB_PORT: ${{ steps.terraform-output.outputs.COURSE_DB_PORT }}
+          COURSE_DB_NAME: ${{ steps.terraform-output.outputs.COURSE_DB_NAME }}
+          PAYMENT_DB_SECRET_ARN: ${{ steps.terraform-output.outputs.PAYMENT_DB_SECRET_ARN }}
+          PAYMENT_DB_HOST: ${{ steps.terraform-output.outputs.PAYMENT_DB_HOST }}
+          PAYMENT_DB_PORT: ${{ steps.terraform-output.outputs.PAYMENT_DB_PORT }}
+          PAYMENT_DB_NAME: ${{ steps.terraform-output.outputs.PAYMENT_DB_NAME }}
+      - name: Update and Apply k8s Deployments 
+        uses: swdotcom/update-and-apply-kubernetes-configs@v1
+        with:
+          k8-config-file-paths: |
+            k8s/auth.yml
+            k8s/course.yml
+            k8s/payment.yml
+          replacement-method: all
+        env:
+          AUTH_IMAGE_URI: ${{ secrets.AUTH_IMAGE_URI }}
+          COURSE_IMAGE_URI: ${{ secrets.COURSE_IMAGE_URI }}
+          PAYMENT_IMAGE_URI: ${{ secrets.PAYMENT_IMAGE_URI }}
+      - name: Deploy k8s ingress service
+        run: |
+          kubectl apply -f k8s-prod/ingress-service.yml
