@@ -44,4 +44,6 @@ jobs:
       - name: Terraform Init
         run: terraform init -backend-config="key=$TF_STATE_KEY"
       - name: Terraform Apply
+        env:
+          TF_VAR_eks_admin_role_arn: ${{ secrets.AWS_ROLE }}
         run: terraform apply -input=false -auto-approve
