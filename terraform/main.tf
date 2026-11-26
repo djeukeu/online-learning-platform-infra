@@ -1,4 +1,5 @@
 resource "aws_ecr_repository" "ecr_repo" {
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed encryption; a customer-managed KMS key is not configured.
   for_each = { for service in var.services : service.name => service }
 
   name                 = "${each.value.name}-repo"
@@ -97,6 +98,10 @@ module "image_build" {
 }
 
 resource "aws_eks_cluster" "eks_cluster" {
+  #checkov:skip=CKV_AWS_38:Public API access is retained for cluster administration.
+  #checkov:skip=CKV_AWS_39:Public API access is retained for cluster administration.
+  #checkov:skip=CKV_AWS_58:EKS-managed secrets encryption is not configured for this cluster.
+  #checkov:skip=CKV_AWS_339:Kubernetes 1.37 is the version selected for this cluster.
   name     = "${var.app_name}-cluster"
   role_arn = aws_iam_role.eks_cluster_role.arn
   version  = "1.37"

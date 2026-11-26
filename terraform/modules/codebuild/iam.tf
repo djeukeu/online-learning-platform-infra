@@ -13,6 +13,8 @@ data "aws_iam_policy_document" "codebuild_assume_role" {
 }
 
 data "aws_iam_policy_document" "codebuild_policy" {
+  #checkov:skip=CKV_AWS_111:CodeBuild requires wildcard-scoped read and network interface actions; interface permissions are constrained by subnet and service conditions.
+  #checkov:skip=CKV_AWS_356:Some CodeBuild API actions require Resource="*"; network interface permissions are constrained by subnet and service conditions.
 
   statement {
     effect = "Allow"

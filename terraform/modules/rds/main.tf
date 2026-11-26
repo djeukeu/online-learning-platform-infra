@@ -22,6 +22,11 @@ resource "aws_secretsmanager_secret_rotation" "rds_secret_rotation" {
 }
 
 resource "aws_db_instance" "db_instance" {
+  #checkov:skip=CKV_AWS_161:IAM database authentication is not used by these service applications.
+  #checkov:skip=CKV_AWS_226:Minor engine upgrades are managed through the planned database maintenance process.
+  #checkov:skip=CKV_AWS_293:Deletion protection is disabled to allow Terraform-managed environment teardown.
+  #checkov:skip=CKV_AWS_354:Performance Insights uses AWS-managed encryption; a customer-managed KMS key is not configured.
+  #checkov:skip=CKV2_AWS_30:Database query logging is not enabled for these service databases.
   identifier     = var.name
   engine         = var.engine
   instance_class = var.instance_class

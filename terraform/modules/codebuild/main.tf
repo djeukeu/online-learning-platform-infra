@@ -1,4 +1,5 @@
 resource "aws_security_group" "codebuild_sg" {
+  #checkov:skip=CKV_AWS_382:Build environments require outbound access to GitHub and external dependency registries.
   name_prefix = "${var.name}-codebuild-sg"
   description = "Codebuild Security Group"
   vpc_id      = var.vpc_id
@@ -20,6 +21,7 @@ resource "aws_codebuild_source_credential" "github" {
 }
 
 resource "aws_codebuild_project" "codebuild" {
+  #checkov:skip=CKV_AWS_316:Privileged mode is enabled only for container image builds that require Docker.
   name          = var.name
   description   = "CodeBuild for ${var.name} service"
   service_role  = aws_iam_role.codebuild_role.arn
