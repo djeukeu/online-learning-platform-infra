@@ -22,5 +22,5 @@ variable "engine" {
 
 variable "instance_class" {
   type    = string
-  default = "db.t3.micro"
+  default = "db.t3.medium"
 }

@@ -10,14 +10,7 @@ spec:
     - host: localhost
       http:
         paths:
-          - path: /api/auth/?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: auth-service
-                port: 
-                  number: 4001
-          - path: /api/user/?(.*)
+          - path: /api/(auth|user)(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
               service:

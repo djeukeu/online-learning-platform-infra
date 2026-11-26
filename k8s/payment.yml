@@ -7,17 +7,22 @@ spec:
     app: payment
   type: ClusterIP
   ports:
-    - name: http
-      protocol: 'TCP'
+    - name: payment-port
+      protocol: TCP
       port: 4003
-      targetPort: 4003
+      targetPort: payment-port
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: payment-deployment
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: payment
@@ -26,10 +31,26 @@ spec:
       labels:
         app: payment
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: payment
       containers:
         - name: payment
-          image: djeukeu/online-learning-payment:1.0.4
-          imagePullPolicy: Always
+          image: ${PAYMENT_IMAGE_URI}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: payment-port
+              containerPort: 4003
           resources:
             requests:
               memory: '128Mi'
@@ -37,41 +58,66 @@ spec:
             limits:
               memory: '256Mi'
               cpu: '250m'
-          readinessProbe:
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
             httpGet:
               path: /health
-              port: 4003
-            initialDelaySeconds: 5
-            periodSeconds: 10
+              port: payment-port
+            periodSeconds: 5
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /health
-              port: 4003
-            initialDelaySeconds: 10
-            periodSeconds: 20
+              port: payment-port
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /db-health
+              port: payment-port
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
           env:
             - name: PORT
               valueFrom:
                 configMapKeyRef:
-                  name: env-payment
+                  name: payment-env
                   key: port
             - name: APP_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: env-payment
+                  name: payment-env
                   key: app_name
             - name: APP_ENV
               valueFrom:
                 configMapKeyRef:
-                  name: env-payment
+                  name: project-env
                   key: app_env
             - name: DATABASE_URL
               valueFrom:
-                configMapKeyRef:
-                  name: env-payment
+                secretKeyRef:
+                  name: payment-secrets
                   key: db_url
             - name: JWT
               valueFrom:
-                configMapKeyRef:
-                  name: env
+                secretKeyRef:
+                  name: project-secrets
                   key: jwt
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: payment

@@ -13,8 +13,8 @@ data "aws_iam_policy_document" "codebuild_assume_role" {
 }
 
 data "aws_iam_policy_document" "codebuild_policy" {
-  #checkov:skip=CKV_AWS_111:CodeBuild requires wildcard-scoped read and network interface actions; subnet and service conditions constrain interface permissions.
-  #checkov:skip=CKV_AWS_356:Some CodeBuild API actions require Resource="*"; network interface permissions are scoped by subnet and service conditions.
+  #checkov:skip=CKV_AWS_111:CodeBuild requires wildcard-scoped read and network interface actions; interface permissions are constrained by subnet and service conditions.
+  #checkov:skip=CKV_AWS_356:Some CodeBuild API actions require Resource="*"; network interface permissions are constrained by subnet and service conditions.
 
   statement {
     effect = "Allow"
@@ -23,21 +23,6 @@ data "aws_iam_policy_document" "codebuild_policy" {
       "logs:PutLogEvents",
     ]
     resources = ["${aws_cloudwatch_log_group.codebuild_log_group.arn}:*"]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:PutObject",
-      "s3:GetBucketAcl",
-      "s3:GetBucketLocation",
-    ]
-    resources = [
-      aws_s3_bucket.codebuild_s3_cache.arn,
-      "${aws_s3_bucket.codebuild_s3_cache.arn}/*",
-    ]
   }
 
   dynamic "statement" {

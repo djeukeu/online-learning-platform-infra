@@ -21,7 +21,7 @@ resource "aws_codebuild_source_credential" "github" {
 }
 
 resource "aws_codebuild_project" "codebuild" {
-  #checkov:skip=CKV_AWS_316:Privileged mode is disabled for database builds and enabled only for container image builds that require Docker.
+  #checkov:skip=CKV_AWS_316:Privileged mode is enabled only for container image builds that require Docker.
   name          = var.name
   description   = "CodeBuild for ${var.name} service"
   service_role  = aws_iam_role.codebuild_role.arn
@@ -79,11 +79,6 @@ resource "aws_codebuild_project" "codebuild" {
     type = "NO_ARTIFACTS"
   }
 
-  cache {
-    type     = "S3"
-    location = aws_s3_bucket.codebuild_s3_cache.bucket
-  }
-
   logs_config {
     cloudwatch_logs {
       group_name = aws_cloudwatch_log_group.codebuild_log_group.name
@@ -116,6 +111,13 @@ resource "aws_codebuild_webhook" "codebuild_webhook" {
     filter {
       type    = "HEAD_REF"
       pattern = "^refs/heads/${var.github.branch}$"
+    }
+    dynamic "filter" {
+      for_each = var.db != null ? [1] : []
+      content {
+        type    = "FILE_PATH"
+        pattern = var.db_migration_path
+      }
     }
   }
 }

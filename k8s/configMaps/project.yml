@@ -1,6 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: env
+  name: project-env
 data:
-  jwt: '${APP_JWT}'
+  app_env: '${APP_ENV}'
+

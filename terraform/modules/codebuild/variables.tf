@@ -13,6 +13,12 @@ variable "db" {
   default  = null
 }
 
+variable "db_migration_path" {
+  type     = string
+  default  = "^prisma/migrations/.*"
+  nullable = true
+}
+
 variable "ecr_repo" {
   type = object({
     arn  = string

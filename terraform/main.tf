@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "ecr_repo" {
-  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
+  #checkov:skip=CKV_AWS_136:Uses ECR-managed encryption; a customer-managed KMS key is not configured.
   for_each = { for service in var.services : service.name => service }
 
   name                 = "${each.value.name}-repo"
@@ -23,6 +23,10 @@ module "database" {
   engine     = each.value.db_engine
 }
 
+data "aws_eks_cluster" "eks_cluster_info" {
+  name = aws_eks_cluster.eks_cluster.name
+}
+
 resource "aws_security_group_rule" "db_sg_rule" {
   for_each = { for service in var.services : service.name => service }
 
@@ -33,6 +37,18 @@ resource "aws_security_group_rule" "db_sg_rule" {
   protocol                 = "tcp"
   security_group_id        = module.database[each.key].db_security_group_id
   source_security_group_id = module.database_build[each.key].codebuild_sg_id
+}
+
+resource "aws_security_group_rule" "db_cluster_sg_rule" {
+  for_each = { for service in var.services : service.name => service }
+
+  description              = "DB Security Group rule to grant DB Port access to EKS Cluster"
+  type                     = "ingress"
+  from_port                = module.database[each.key].db_port
+  to_port                  = module.database[each.key].db_port
+  protocol                 = "tcp"
+  security_group_id        = module.database[each.key].db_security_group_id
+  source_security_group_id = data.aws_eks_cluster.eks_cluster_info.vpc_config[0].cluster_security_group_id
 }
 
 module "database_build" {
@@ -81,46 +97,88 @@ module "image_build" {
   }
 }
 
-# resource "aws_eks_cluster" "eks_cluster" {
-#   name     = var.app_name
-#   role_arn = aws_iam_role.eks_cluster_role.arn
-#   version  = "1.32"
+resource "aws_eks_cluster" "eks_cluster" {
+  #checkov:skip=CKV_AWS_38:Public API access is retained for cluster administration.
+  #checkov:skip=CKV_AWS_39:Public API access is retained for cluster administration.
+  #checkov:skip=CKV_AWS_58:EKS-managed secrets encryption is not configured for this cluster.
+  #checkov:skip=CKV_AWS_339:Kubernetes 1.37 is the version selected for this cluster.
+  name     = "${var.app_name}-cluster"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+  version  = "1.37"
 
-#   access_config {
-#     authentication_mode = "API"
-#   }
+  access_config {
+    authentication_mode = "API"
+  }
 
-#   vpc_config {
-#     subnet_ids              = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
-#     endpoint_private_access = true
-#     endpoint_public_access  = true
-#   }
+  vpc_config {
+    subnet_ids              = [for subnet in aws_subnet.private_subnet : subnet.id]
+    endpoint_private_access = true
+    endpoint_public_access  = true
+  }
 
-#   depends_on = [
-#     aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
-#   ]
-# }
+  enabled_cluster_log_types = [
+    "api", "audit", "authenticator", "controllerManager", "scheduler"
+  ]
 
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
+    aws_cloudwatch_log_group.eks_cluster_log_group
+  ]
+}
 
-# resource "aws_eks_node_group" "node_group" {
-#   cluster_name    = aws_eks_cluster.eks_cluster.name
-#   node_group_name = "${var.app_name}-node-group"
-#   node_role_arn   = aws_iam_role.eks_node_group_role.arn
-#   subnet_ids      = concat([for subnet in aws_subnet.public_subnet : subnet.id], [for subnet in aws_subnet.private_subnet : subnet.id])
+resource "aws_eks_node_group" "eks_node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "${var.app_name}-node-group"
+  node_role_arn   = aws_iam_role.eks_node_group_role.arn
+  subnet_ids      = [for subnet in aws_subnet.private_subnet : subnet.id]
 
-#   scaling_config {
-#     desired_size = 1
-#     max_size     = 3
-#     min_size     = 1
-#   }
+  scaling_config {
+    desired_size = length(aws_subnet.private_subnet)
+    min_size     = length(aws_subnet.private_subnet)
+    max_size     = length(aws_subnet.private_subnet) * 2
+  }
 
-#   instance_types = ["t3.medium"]
+  instance_types = ["t3.medium"]
+  ami_type       = "AL2023_x86_64_STANDARD"
 
-#   depends_on = [
-#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
-#     aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
-#     aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
-#   ]
-# }
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
 
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.eks_node_group_AmazonEC2ContainerRegistryReadOnly,
+  ]
+}
+
+resource "aws_eks_addon" "eks_cluster_pod_agent" {
+  cluster_name = aws_eks_cluster.eks_cluster.name
+  addon_name   = "eks-pod-identity-agent"
+}
+
+resource "aws_eks_addon" "eks_cluster_cw_observability" {
+  cluster_name = aws_eks_cluster.eks_cluster.name
+  addon_name   = "amazon-cloudwatch-observability"
+
+  depends_on = [aws_eks_pod_identity_association.cloudwatch_agent]
+}
+
+resource "aws_eks_pod_identity_association" "cloudwatch_agent" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  namespace       = "amazon-cloudwatch"
+  service_account = "cloudwatch-agent"
+  role_arn        = aws_iam_role.cloudwatch_agent.arn
+
+  depends_on = [aws_eks_addon.eks_cluster_pod_agent]
+}
+
+resource "aws_eks_pod_identity_association" "eso" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  namespace       = "external-secrets"
+  service_account = "external-secrets"
+  role_arn        = aws_iam_role.eso.arn
+
+  depends_on = [aws_eks_addon.eks_cluster_pod_agent]
+}
 
