@@ -1,5 +1,4 @@
 resource "aws_ecr_repository" "ecr_repo" {
-  #checkov:skip=CKV_AWS_136:Uses ECR-managed AES-256 encryption; a customer-managed KMS key is not configured.
   for_each = { for service in var.services : service.name => service }
 
   name                 = "${each.value.name}-repo"

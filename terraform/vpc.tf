@@ -1,6 +1,4 @@
 resource "aws_vpc" "vpc" {
-  #checkov:skip=CKV2_AWS_11:VPC flow logs are not configured in this environment.
-  #checkov:skip=CKV2_AWS_12:The default security group is unused; workloads use dedicated security groups.
   cidr_block           = "172.32.0.0/16"
   instance_tenancy     = "default"
   enable_dns_support   = true
@@ -8,13 +6,11 @@ resource "aws_vpc" "vpc" {
 }
 
 data "aws_availability_zones" "az_available" {
-  #checkov:skip=CKV_AWS_394:Subnets intentionally span all currently available Availability Zones.
   state                  = "available"
   all_availability_zones = true
 }
 
 resource "aws_subnet" "public_subnet" {
-  #checkov:skip=CKV_AWS_130:Public subnets intentionally assign public IPs for internet-facing resources.
   for_each = toset(data.aws_availability_zones.az_available.names)
   vpc_id   = aws_vpc.vpc.id
   cidr_block = cidrsubnet(
