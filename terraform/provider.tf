@@ -13,7 +13,6 @@ terraform {
 
   backend "s3" {
     bucket       = "djeukeu-terraform-state"
-    key          = "online-learning/stage/terraform.tfstate"
     region       = "us-east-2"
     use_lockfile = true
   }

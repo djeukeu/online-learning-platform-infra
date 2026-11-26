@@ -38,15 +38,10 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE }}
           aws-region: ${{ secrets.AWS_REGION }}
       - name: Write terraform variable files
-        run: |
-          echo '${{ secrets.TF_STAGE_VARS }}' > terraform.tfvars
+        env:
+          TF_VARS: ${{ github.ref_name == 'master' && secrets.TF_PROD_VARS || secrets.TF_STAGE_VARS }}
+        run: printf '%s\n' "$TF_VARS" > terraform.tfvars
       - name: Terraform Init
         run: terraform init -backend-config="key=$TF_STATE_KEY"
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve
-      - name: Write terraform ouput
-        run: terraform output -json > output.json
-      - uses: actions/upload-artifact@v7
-        with:
-          name: tf-output
-          path: terraform/output.json
