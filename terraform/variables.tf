@@ -16,6 +16,16 @@ variable "environment" {
   }
 }
 
+variable "eks_admin_role_arn" {
+  description = "IAM role ARN to grant cluster administrator access."
+  type        = string
+
+  validation {
+    condition     = can(regex("^arn:[^:]+:iam::[0-9]{12}:role/.+$", var.eks_admin_role_arn))
+    error_message = "eks_admin_role_arn must be an IAM role ARN, not an STS assumed-role ARN."
+  }
+}
+
 variable "github_token" {
   type = string
 }
